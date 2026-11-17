@@ -76,3 +76,9 @@ A tile that starts with `style="display: none"` and blank text didn't lay out ne
 - UIKit lays out newly shown elements on its next update: read an element's world position (for tests) a few hundred ms after toggling `display`.
 - Panels in the editor preview render light, but dark at runtime (preferred scheme dark): give every text class a `:dark` colour.
 - Placement check: primary UI 10–20° below eye level. A card 0.38 m away and 0.25 m below the eyes (33°) was invisible in review shots; 0.5 m away and 0.17 m below (19°) read well.
+
+## Hidden elements still take a custom poke
+`setProperties({ display: 'none' })` hides a UIKit element, but its `matrixWorld` stays where it was. A hand-written fingertip poke that tests each button's rectangle will still fire a hidden button at its old position. That's how adding a third language chip made "Play your own tune" (shown in the same row's place) switch to Chinese. Route every show/hide through one helper that records hidden ids, and skip those ids (and the children of hidden rows) in the poke test.
+
+## The 2D page on a computer
+The `world.xrEnabled` config flag doesn't mean the browser can run XR. Check `navigator.xr.isSessionSupported('immersive-ar')` on load. When it's false, hide the Enter button and say plainly what the page is ("a preview; open this address in Meta Quest Browser"). A start button that does nothing reads as a broken site. At runtime `setProperties({ lineHeight })` is a **multiplier**: 24 stretches the card 24 times, so leave it out or use about 1.4. Screenshot the deployed URL in a plain desktop Chromium (Playwright) after every deploy.

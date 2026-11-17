@@ -63,3 +63,59 @@ When a full place covers the room (a street, a hall), passthrough hands disappea
 - `OneHandGrabbable` + the GrabSystem (`features.grabbing: true`): subscribe to `{required:[MyTag, Grabbed]}` `qualify`/`disqualify` for pick-up/release; the system moves the object while held, your code handles the drop.
 - **The near-grab sphere sits at the palm (grip space), not the fingertips.** It takes the object nearest the palm, so small items in a cluster (coins around a centre coin) get the wrong one. Lay small grabbables in a single row across the reach direction, about 7 cm apart.
 - Toggle interaction components with game state (only live targets interactable) rather than leaving hidden objects raycastable.
+
+## Feedback, gestures and tracking loss (Hands of a Master, 18 Nov 2026; source: Meta's hand-tracking guidance)
+- **Poke hover and press on UIKit without a pointer:** add a class object with the `important` conditional (`el.classList.add({ important: { backgroundColor } })`) and remove it afterwards. It outranks inline `setProperties` and `:hover`, and comes off cleanly. Use the same for gesture and microgesture feedback.
+- **Poke cursor:** a ring on the panel plane under the fingertip (tip minus normal × depth), scaled by depth over about 7 cm, `depthTest: false`, high `renderOrder`. This answers Meta's "communicate touch z-distance".
+- **Pose detection from 25 joints:**
+  - Use a soft ramp per cue: curled = tip-to-knuckle under 4–6 cm; thumb clear of the index knuckle; thumb direction · world up above 0.55–0.8. Confidence = the minimum across cues.
+  - Gate it with a `HoldGate`: hold 0.6 s at ≥ 0.7, forgive 120 ms dips, and latch until 0.3 s below 0.35. Start latched, so a pose already showing when the gate opens can't fire.
+  - Enable it only while its action is on screen, and show a filling ring while it's held.
+- **Tracking loss:** WebXR has no confidence API, so "no joint pose" means lost.
+  - Allow about 150 ms of grace, then cancel the stroke and don't score it.
+  - Pause anything clocked: advance it only on `dt`, and skip the update while lost.
+  - Show a body-locked card after 0.3 s if the activity is timed, or about 2.5 s if it's waiting.
+  - Emulator: `xr set-connected {device, connected: false}`.
+- **"Lifted" must be observed, never inferred from absence.** A hand that came back already touching the paper started a stroke mid-page. A change of active hand also re-arms the lift requirement.
+- **No palm-up hand menu:** WebXR reserves the palm pinch for the system (the left one exits the session). Keep menus world-anchored within reach.
+- **Microgestures:** IWSDK and IWER map them to hand-gamepad buttons 5–9, but Meta doesn't document them for Quest Browser. Use them only as optional shortcuts (rising edge, only while the target is live); test with `xr microgesture`.
+- **Emulator tips:**
+  - Hover with `run-sequence {target, anchor: "index-tip", offset: {normal: 0.03}}`.
+  - `approach` ends on the surface and presses.
+  - `depart` before dropping a hand, so it doesn't sweep through a tilted panel.
+  - A `browser screenshot` takes about 3 s; catch sub-second states with a `browser run` loop over `page.screenshot`.
+
+## Intent guardrails: never do what the player didn't mean (Chausar, 18 Nov 2026; source: Meta's Chess Club, Hand Physics Lab and Table Troopers stories)
+The shared lesson of all three: when input is ambiguous, don't execute an action and don't punish; give a way back.
+- **Tracking lost while holding something:** decide by the speed at the moment of loss. Keep the last good pinch-point velocity; if it was above about 0.8 m/s the motion blurred a throw, so release with that velocity. Otherwise freeze the object where it was, show a "show your hand again" cue after about 0.6 s, and:
+  - hand returns pinching within about 30 cm → glide the object back into the hand over about 0.2 s (never snap; Hand Physics Lab lerps rather than teleports);
+  - hand returns open → the player let go while unseen: cancel, put the object back, don't guess a throw;
+  - nothing after about 2.5 s → cancel the same way.
+  Keep counting any "hidden hand" mechanic during the freeze: cameras lose hands below a table edge exactly when the player is hiding them.
+  Have the input layer report `justLost` and `lostSpeed` and leave the decision to the game, instead of turning loss into a release.
+- **Commit a choice deliberately:** hover previews (the piece lifts about 1.5 cm, its destination swells, a soft tick); a pinch commits at once; a resting fingertip commits only after about 0.3 s dwell, with glow that fills. A fingertip brushing past on its way to another target must not commit.
+- **Undo is a take-back window, not a button:** for about 2.4 s after a choice made between options, touching the moved piece again restores a snapshot of the state and reopens the choice. Arm it only after the choosing hand has left the piece (about 6 cm), or the finger that chose takes it straight back. Keep the window open (up to about 5 s) while an armed hand hovers within about 12 cm of the piece: someone reaching back is deciding to take it back.
+- **Grab affordance before the grab:** when a pinch point comes within range, brighten the object and tick once, so the player knows a pinch will take it.
+- **Controllers still have haptics:** `inputSource.gamepad.hapticActuators[0].pulse(v, ms)` in a try/catch, skipped for hands. Pair every pulse with the sound and glow that hands rely on.
+- **Answer the gestures players already make:** a raised open hand waving (three or more left/right sign flips of horizontal velocity above about 0.3 m/s within 1.6 s, palm near head height, not pinching) gets an in-character reply, on a 25 s cooldown and only in calm phases.
+- **Already-good defaults these stories confirm:** release velocity from a window that skips the last ~40 ms (Table Troopers aims with the position from just before the pinch opened); physical objects as UI (an eraser, a gong) rather than gesture vocabularies; one-handed play; hands and controllers interchangeable at any time.
+- **Emulator:** IWER resets a reconnected hand to open (pinch 0, default pose), unlike a real hand, which comes back still pinching. Reconnect, restore the position and pinch in one call: `xr set-device-state {state:{hands:{right:{connected:true, position, pinchValue:1}}}}`. Each CLI call costs about 1 s, so for any window under about 3 s, position the hand before the window opens (aim at a logged destination) instead of reading a log and then moving. A phase log written before an animation starts reports the pre-animation positions.
+
+## Onboarding hands (source: Meta, "Hands Onboarding 101", Nov 2026)
+- Teach the core action first, as a small real task (pick up the dice), before secondary gestures. Keep a critical prompt up until the player succeeds, not until it's dismissed.
+- **Instructions follow the active input:** keep a controller variant of every instruction ("pull the trigger", not "pinch") and choose it per frame from whether a tracked source is a hand.
+- **Contextual reminders, not a one-shot tutorial:** if nothing happens for about 12 s, show the full instruction again; re-offer the hint for a trick the player hasn't tried yet every few turns.
+- Confirm every success with something seen and heard; define what happens to held objects on tracking loss and tell the player how to continue.
+- Unfamiliar gestures need a demonstration where they're used (a looping neutral 3D hand), not only text.
+- Test with a new player without coaching; watch where they hesitate.
+
+## A tool in the hand (brush, pen)
+- **Keep the fingertip as the contact point,** so the real desk still gives the touch. Draw the tool with its tip where the ink lands and its shaft through the web between thumb and index (the midpoint of `thumb-phalanx-proximal` and `index-finger-phalanx-proximal`). Lean a brush toward vertical; a pen lies back along the hand.
+- **Give the ghost master the same tool,** using its rendered joints.
+- **Hide the resting copy** on the desk while the tool is in the hand.
+- **Pivot the model once at load:** tip at the origin, shaft along +Y. Then each frame it's `position = tip`, `quaternion.setFromUnitVectors(up, dir)`.
+
+## Lessons from Mario 64 MR (Unity, studied Nov 2026; ideas only, see reference-winners/mario64mr-REPORT.md)
+- *Controllers in hand:* a hands-first app must still recognise controllers. If `inputSources` has a gamepad without `hand`, show "Put your controllers down" plus where to turn on hand tracking, not the tracking-loss card. Optionally map the grip pose and trigger to the fingertip and pinch so the journey still completes (source: Mario 64 MR switches layouts live).
+- *Freeze the target while the hand reaches in:* anything a hand must touch holds still while the hand is inside its volume, then eases back to motion (Mario 64 MR `_freezeWeight`, `Thaw`).
+- *Hands as kinematic colliders rebuilt every frame* (boxes per bone), a flat-palm test before anything may stand on a hand, and carrying by adding the hand's per-frame delta. Exclude goal items from "touch to collect" so the core verb stays the player's.

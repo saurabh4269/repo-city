@@ -32,6 +32,7 @@
 | Preset | `browser run tools/goto.mjs` | needs `dev restart --allow-browser-automation` (architecture.md) |
 
 ## Rules that saved hours
+- **Unattended runs: headless.** A headed managed browser stops drawing when the screen locks or the window is hidden. The app logs one frame and freezes (e.g. stuck at "finding your desk") with **no errors**. Use `npx iwsdk dev restart --headless --open --allow-browser-automation` for long or overnight test runs; switch back to headed (and say so) when the user wants to watch.
 - **Never edit `src/` while a run is going** (comments included). Docs, skills and `public/` assets outside the import graph are safe. If you slipped, restart the run.
 - Run long suites in the background (`npm run test:xr`) and write docs meanwhile; wait for the completion notice.
 - Quick run (one item + the changed feature) after each change; the full suite before each commit.
@@ -49,6 +50,8 @@
 
 ## What only a headset can prove (keep this list in `docs/TESTING.md`, tick it on the device)
 72 fps (60 floor) during the heaviest effect; text and models render under multiview; contact and pinch thresholds with real hands; tracking at gesture extremes (under the table, edge of view); two different rooms; depth occlusion; text legibility at distance; hand-tracking permission prompt; system-menu pause; TTS voices; the file picker in Quest Browser; microgestures; the production URL logged out.
+
+**Playtest without coaching** (Meta's "Hands Onboarding 101", and all three hands-first stories): hand the headset to someone new and say nothing. Note where they hesitate, try another input, miss a confirmation or fail to recover; fix that step and try again with a different person. Include different hand sizes, left-handers and a controller user. Developers are poor judges: they already know how it's supposed to work.
 
 ## Meta VR CLI on the device (works on Linux)
 The `metavr` binary installs to `~/.metavr/npm/binaries/@meta-quest__metavr-linux-x64/<version>/metavr` and is not on PATH.
@@ -75,3 +78,23 @@ For CPU frame time in the browser: `chrome://inspect#devices`, then "trace" on c
 - **Tests must reset world state the desktop preview changed.** The 2D page runs the same journey (e.g. auto-hails after 3 s), so entering XR found the vehicle already parked. Reset vehicles and one-shot state on every new journey and on "play again".
 - Drive a generic loop from the app's own logs (`phase X errand=Y step=N`, `result points=`, `targets … layout={buttons:{…}}`) so one driver plays any level. Press UIKit buttons by poking their logged positions, and fall back to `xr run-sequence {target, press}`; count both paths.
 - Physical-randomness checks (which coin the grab takes) can't be forced: verify the rule whenever it occurs (every overpayment got change back) rather than failing when it doesn't happen.
+
+## Recording a trailer from the emulator (Linux, no headset)
+The rules accept emulator footage ("as viewed on a Meta Quest device or via XR Simulator or another equivalent emulator"). The reference implementation is in Hands of a Master: `tools/trailer/recorder.mjs`, `shoot.py` and `assemble.py`.
+- **One shot per `browser run`:** scripts are capped at 110 s per lease.
+  - Set the viewport to 1920×1080 *before* the session starts; a running session keeps its canvas size.
+  - Reload with a preset, then make one trusted `page.mouse.click`, or Chrome keeps the app's audio locked.
+  - Grant the offered session (`IWER_DEVICE.grantOfferedSession()`).
+  - Hide `IWER_DEVICE.devui` (canvas and container) and the workspace chrome around the runtime iframe.
+- **Frames:** use the CDP `Page.startScreencast` (JPEG plus timestamps, 25–50 fps on a GPU). Encode them with an ffconcat file with per-frame durations, then `fps=30`.
+- **App log during a shot:** the CLI's log reader waits while the script holds the lease, so capture `page.on('console')` to a file and drive the shot from that. Use the *latest* layout line: a preset can switch songs or lessons after the first one is logged.
+- **Camera:** set the head with `xr set-transform` before the reload (the emulator restores it, so the desk is placed in front of a seated viewer). Aim it after the session starts. Use `xr animate-to {device: "headset", orientation: {pitch, yaw, roll}, easing: "minimum-jerk"}` for push-ins.
+- **Audio:**
+  - The headless managed browser runs with `--mute-audio`, so record **headed** with the screen awake.
+  - Route Chromium to a null sink: `pactl load-module module-null-sink sink_name=rec`, then `pactl move-sink-input <id> rec`. New Chromium streams follow (stream-restore).
+  - Record with `ffmpeg -f pulse -i rec.monitor`.
+  - **Move the streams back and unload the sink afterwards,** or Chromium stays silent for the user.
+
+## Lessons from Mario 64 MR (Unity, studied Nov 2026; ideas only, see reference-winners/mario64mr-REPORT.md)
+- *Headless tests of the game core* drive the real build through its menus to a known state, inject room and hand geometry, and assert outcomes. Each player-reported bug becomes one named case.
+- *Platform arithmetic:* undefined float-to-integer casts behave differently on the headset's arm64 CPU; test pure maths on arm64 or clamp before casting.
