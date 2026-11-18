@@ -13,7 +13,11 @@
     "reference:warmup": "iwsdk reference warmup",
     "typecheck": "tsc --noEmit",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "city": "node tools/repo-to-city/build-all.mjs",
+    "test:unit": "node --test tools/test/",
+    "test:xr": "XR_LOG_TAG=city python3 tools/e2e/journey.py",
+    "test:xr:tour": "XR_LOG_TAG=city python3 tools/e2e/journey.py --tour"
   },
   "dependencies": {
     "@iwsdk/core": "1.1.0",

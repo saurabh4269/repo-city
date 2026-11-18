@@ -16,7 +16,7 @@
         "handTracking": true,
         "anchors": true,
         "planeDetection": true,
-        "meshDetection": true
+        "meshDetection": false
       }
     },
     "input": {
@@ -29,19 +29,19 @@
       "camera": {
         "position": [
           0,
-          1.6,
-          1
+          1.18,
+          0.42
         ],
         "lookAt": [
           0,
-          0.95,
-          -1.95
+          0.78,
+          -0.12
         ]
       }
     },
     "features": {
       "locomotion": false,
-      "grabbing": true,
+      "grabbing": false,
       "physics": false,
       "sceneUnderstanding": true,
       "environmentRaycast": false,

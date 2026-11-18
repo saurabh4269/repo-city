@@ -46,3 +46,6 @@ pids/
 
 # Regenerated per machine by `npm run setup` (absolute paths)
 opencode.json
+
+# test screenshots
+artifacts/

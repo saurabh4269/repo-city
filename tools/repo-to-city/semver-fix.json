@@ -1,0 +1,7 @@
+{
+  "file": "ranges/subset.js",
+  "line": 233,
+  "before": ": b.operator === '>=' && a.operator === '>' ? b",
+  "after": ": b.operator === '>' && a.operator === '>=' ? b",
+  "upstream": "npm/node-semver v7.7.3 has the second form (the fixed line)."
+}

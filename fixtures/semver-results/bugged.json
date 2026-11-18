@@ -1,0 +1,239 @@
+{
+  "runner": "tap-shim (tap 16 API) on node 26.13.0",
+  "variant": "bugged",
+  "total": 8827,
+  "passed": 8824,
+  "failed": 3,
+  "durationMs": 1913,
+  "files": {
+    "test/bin/semver.js": {
+      "passed": 46,
+      "failed": 0
+    },
+    "test/classes/comparator.js": {
+      "passed": 78,
+      "failed": 0
+    },
+    "test/classes/index.js": {
+      "passed": 1,
+      "failed": 0
+    },
+    "test/classes/range.js": {
+      "passed": 554,
+      "failed": 0
+    },
+    "test/classes/semver.js": {
+      "passed": 860,
+      "failed": 0
+    },
+    "test/functions/clean.js": {
+      "passed": 13,
+      "failed": 0
+    },
+    "test/functions/cmp.js": {
+      "passed": 545,
+      "failed": 0
+    },
+    "test/functions/coerce.js": {
+      "passed": 227,
+      "failed": 0
+    },
+    "test/functions/compare-build.js": {
+      "passed": 7,
+      "failed": 0
+    },
+    "test/functions/compare-loose.js": {
+      "passed": 30,
+      "failed": 0
+    },
+    "test/functions/compare.js": {
+      "passed": 309,
+      "failed": 0
+    },
+    "test/functions/diff.js": {
+      "passed": 37,
+      "failed": 0
+    },
+    "test/functions/eq.js": {
+      "passed": 272,
+      "failed": 0
+    },
+    "test/functions/gt.js": {
+      "passed": 198,
+      "failed": 0
+    },
+    "test/functions/gte.js": {
+      "passed": 198,
+      "failed": 0
+    },
+    "test/functions/inc.js": {
+      "passed": 488,
+      "failed": 0
+    },
+    "test/functions/lt.js": {
+      "passed": 198,
+      "failed": 0
+    },
+    "test/functions/lte.js": {
+      "passed": 198,
+      "failed": 0
+    },
+    "test/functions/major.js": {
+      "passed": 9,
+      "failed": 0
+    },
+    "test/functions/minor.js": {
+      "passed": 9,
+      "failed": 0
+    },
+    "test/functions/neq.js": {
+      "passed": 272,
+      "failed": 0
+    },
+    "test/functions/parse.js": {
+      "passed": 16,
+      "failed": 0
+    },
+    "test/functions/patch.js": {
+      "passed": 9,
+      "failed": 0
+    },
+    "test/functions/prerelease.js": {
+      "passed": 9,
+      "failed": 0
+    },
+    "test/functions/rcompare.js": {
+      "passed": 4,
+      "failed": 0
+    },
+    "test/functions/rsort.js": {
+      "passed": 1,
+      "failed": 0
+    },
+    "test/functions/satisfies.js": {
+      "passed": 222,
+      "failed": 0
+    },
+    "test/functions/sort.js": {
+      "passed": 1,
+      "failed": 0
+    },
+    "test/functions/valid.js": {
+      "passed": 16,
+      "failed": 0
+    },
+    "test/index.js": {
+      "passed": 1,
+      "failed": 0
+    },
+    "test/integration/whitespace.js": {
+      "passed": 13,
+      "failed": 0
+    },
+    "test/internal/constants.js": {
+      "passed": 1,
+      "failed": 0
+    },
+    "test/internal/debug.js": {
+      "passed": 6,
+      "failed": 0
+    },
+    "test/internal/identifiers.js": {
+      "passed": 12,
+      "failed": 0
+    },
+    "test/internal/lrucache.js": {
+      "passed": 2001,
+      "failed": 0
+    },
+    "test/internal/parse-options.js": {
+      "passed": 19,
+      "failed": 0
+    },
+    "test/internal/re.js": {
+      "passed": 303,
+      "failed": 0
+    },
+    "test/map.js": {
+      "passed": 50,
+      "failed": 0
+    },
+    "test/preload.js": {
+      "passed": 1,
+      "failed": 0
+    },
+    "test/ranges/gtr.js": {
+      "passed": 136,
+      "failed": 0
+    },
+    "test/ranges/intersects.js": {
+      "passed": 705,
+      "failed": 0
+    },
+    "test/ranges/ltr.js": {
+      "passed": 141,
+      "failed": 0
+    },
+    "test/ranges/max-satisfying.js": {
+      "passed": 5,
+      "failed": 0
+    },
+    "test/ranges/min-satisfying.js": {
+      "passed": 5,
+      "failed": 0
+    },
+    "test/ranges/min-version.js": {
+      "passed": 43,
+      "failed": 0
+    },
+    "test/ranges/outside.js": {
+      "passed": 278,
+      "failed": 0
+    },
+    "test/ranges/simplify.js": {
+      "passed": 7,
+      "failed": 0
+    },
+    "test/ranges/subset.js": {
+      "passed": 89,
+      "failed": 3
+    },
+    "test/ranges/to-comparators.js": {
+      "passed": 73,
+      "failed": 0
+    },
+    "test/ranges/valid.js": {
+      "passed": 108,
+      "failed": 0
+    }
+  },
+  "failures": [
+    {
+      "testFile": "test/ranges/subset.js",
+      "testName": "test/ranges/subset.js",
+      "line": 112,
+      "assertion": "t.equal(subset(sub, dom, options), expect, msg)",
+      "expected": "true",
+      "actual": "false",
+      "message": ">1.2.3-pre.0 ⊂ >=1.2.3-pre.0 = true"
+    },
+    {
+      "testFile": "test/ranges/subset.js",
+      "testName": "test/ranges/subset.js",
+      "line": 112,
+      "assertion": "t.equal(subset(sub, dom, options), expect, msg)",
+      "expected": "false",
+      "actual": "true",
+      "message": ">=1.0.0 <2.0.0 ⊂ >1.0.0 = false"
+    },
+    {
+      "testFile": "test/ranges/subset.js",
+      "testName": "test/ranges/subset.js",
+      "line": 112,
+      "assertion": "t.equal(subset(sub, dom, options), expect, msg)",
+      "expected": "true",
+      "actual": "false",
+      "message": ">2.0.0 ⊂ >=2.0.0 = true"
+    }
+  ]
+}

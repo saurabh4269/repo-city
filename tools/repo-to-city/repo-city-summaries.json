@@ -1,0 +1,25 @@
+{
+  "tagline": "This app: a WebXR city on your desk built from a code repo, where a failing test sets a building on fire.",
+  "rootDistrictName": "src",
+  "source": {
+    "repo": "repo-city",
+    "url": "",
+    "commit": "",
+    "license": "",
+    "note": "Built from this project's own src/**/*.ts at the time `npm run city` last ran."
+  },
+  "districts": {
+    "root": "The app entry: creates the IWSDK world, registers systems and wires the pieces together.",
+    "city": "Reads a city JSON file and builds the miniature city: districts, buildings, floors and streets.",
+    "ui": "Panels and labels drawn in the headset: the guide, code cards and test results.",
+    "fx": "Visual effects such as the fire on a building with a failing test.",
+    "input": "Hand tracking: pinching, poking and grabbing the city with bare hands.",
+    "mr": "Mixed reality: finding the real table and placing the city on it.",
+    "audio": "Sound effects and ambience."
+  },
+  "guide": {
+    "intro": "This is Repo City's own code. Each building is a source file, each floor a function, and streets are imports.",
+    "onFire": "Nothing is burning here: no tests are failing.",
+    "done": "Everything is green."
+  }
+}
