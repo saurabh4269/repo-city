@@ -248,6 +248,22 @@ export class RepoCityDirector extends createSystem({
         /* missing city: skipped */
       }
     }
+    // "Your own repo": ?city=<url of a city.json made by tools/repo-to-city> goes first.
+    const own = new URLSearchParams(location.search).get('city');
+    if (own) {
+      try {
+        const r = await fetch(own);
+        if (r.ok) {
+          const data = (await r.json()) as CityData;
+          if (data.version === 1 && Array.isArray(data.buildings)) {
+            this.cities.set(data.id, data);
+            CITIES.unshift(data.id);
+          }
+        }
+      } catch {
+        log(`own city failed ${own}`);
+      }
+    }
     log(`cities loaded ${[...this.cities.keys()].join(',')}`);
   }
 
@@ -441,13 +457,51 @@ export class RepoCityDirector extends createSystem({
   // ───────────────────────── guide + panel
 
   private guideText = '';
+  private notice = '';
+  private lostT = 0;
+  private idleT = 0;
+  /** Seconds the guide spends flying over the current target. */
+  private guideBeacon = 0;
+  private readonly guideHome = new Vector3();
+  private readonly guideGoal = new Vector3();
   private guide(text: string, speak = true): void {
+    this.idleT = 0;
     if (text === this.guideText) return;
     this.guideText = text;
-    this.panel.guide = text;
+    if (!this.notice) this.panel.guide = text;
     this.refreshPanel();
     if (speak && this.immersive) sfx.speak(text);
     log(`guide "${text.slice(0, 80)}"`);
+  }
+
+  /** A temporary line over the guide's (hands lost, controllers in hand); '' restores the guide. */
+  private setNotice(text: string): void {
+    if (text === this.notice) return;
+    this.notice = text;
+    this.panel.guide = text || this.guideText;
+    this.refreshPanel();
+    if (text) log(`notice "${text}"`);
+  }
+
+  /** Watch the input: hands lost for a while, controllers instead of hands, nothing happening. */
+  private updateCare(dt: number): void {
+    const H = this.hands.both;
+    const anyHand = H.some((h) => h.tracked && h.isHand);
+    const controllers = H.some((h) => h.tracked && !h.isHand);
+    this.lostT = anyHand || controllers ? 0 : this.lostT + dt;
+    if (controllers && !anyHand) this.setNotice('This is a hands-only experience: put your controllers down and pinch with your fingers.');
+    else if (this.lostT > 2.5) this.setNotice('I can\'t see your hands. Hold them up in front of you, over the table.');
+    else this.setNotice('');
+    // Tracking lost mid-lift: keep what the player had (open if mostly lifted), never guess further.
+    for (const h of H) if (h.justLost && h === this.dragHand) this.endDrag(performance.now() + 1000);
+    // Contextual reminder: after 15 s without progress, say the current step again.
+    this.idleT += dt;
+    if (this.idleT > 15 && this.phase === 'city' && this.step !== 'free' && !this.journeyDone && this.city.openIndex < 0 === (this.step === 'find-fire')) {
+      this.idleT = 0;
+      sfx.speak(this.guideText);
+      this.guideBeacon = 3;
+      log('reminder');
+    }
   }
 
   private refreshPanel(force = false): void {
@@ -470,10 +524,12 @@ export class RepoCityDirector extends createSystem({
     const fireB = this.fireIndex >= 0 ? d.buildings[this.fireIndex] : null;
     switch (this.step) {
       case 'find-fire':
+        this.guideBeacon = 4;
         this.guide(fireB ? `A test is failing, so ${fireB.name} is on fire. Pinch its roof and lift it off.` : d.guide.intro);
         this.setPlaques(fireB ? [{ id: 'goto-fire', text: 'Open the burning building', accent: UI.fire }, nextCityPlaque(this)] : [nextCityPlaque(this)]);
         break;
       case 'touch-floor':
+        this.guideBeacon = 4;
         this.guide(d.guide.onFire);
         this.setPlaques([{ id: 'touch-floor', text: 'Show the smouldering floor', accent: UI.fire }, { id: 'close', text: 'Close the building' }]);
         break;
@@ -732,6 +788,7 @@ export class RepoCityDirector extends createSystem({
       case 'city':
       case 'done':
         this.updateInteraction(dt);
+        this.updateCare(dt);
         break;
       case 'testing':
         this.updateInteraction(dt);
@@ -759,12 +816,22 @@ export class RepoCityDirector extends createSystem({
       this.fireLight.intensity = 0.06 * (0.8 + 0.2 * Math.sin(time * 23) * Math.sin(time * 7.7));
     } else this.fireLight.intensity = Math.max(0, this.fireLight.intensity - dt * 0.2);
     if (this.immersive) sfx.setFire(this.phase === 'placing' ? 0 : this.fire.level * (this.city.openIndex === this.fireIndex ? 0.6 : 0.35));
-    this.animateGuide(time);
+    this.animateGuide(time, dt);
+    this.perfLog(time);
     this.updateFloorCard();
     if (this.city.shadowDirty) {
       this.city.shadowDirty = false;
       this.sun.shadow.needsUpdate = true;
     }
+  }
+
+  private perfAt = 0;
+  /** Dev: draw calls and triangles every 5 s (the emulator renders each eye: halve them). */
+  private perfLog(time: number): void {
+    if (!import.meta.env.DEV || time - this.perfAt < 5) return;
+    this.perfAt = time;
+    const r = this.renderer.info.render;
+    log(`perf calls=${r.calls} tris=${r.triangles} xr=${this.renderer.xr.isPresenting}`);
   }
 
   private viewportHeight(): number {
@@ -774,9 +841,38 @@ export class RepoCityDirector extends createSystem({
     return this.renderer.domElement.height;
   }
 
-  private animateGuide(time: number): void {
-    this.guideOrb.position.y = PANEL_POS.y + PANEL_H / 2 - 0.04 + Math.sin(time * 1.6) * 0.006;
+  private animateGuide(time: number, dt: number): void {
+    this.guideHome.set(-PANEL_W / 2 - 0.035, PANEL_POS.y + PANEL_H / 2 - 0.04 + Math.sin(time * 1.6) * 0.006, PANEL_POS.z + 0.02);
+    let goal = this.guideHome;
+    if (this.guideBeacon > 0 && this.phase === 'city') {
+      this.guideBeacon -= dt;
+      const t = this.guideTarget();
+      if (t) goal = this.guideGoal.copy(t);
+    }
+    this.guideOrb.position.lerp(goal, 0.06);
     this.guideOrb.rotation.y = time * 0.8;
+  }
+
+  /** Where the guide points for the current step (anchor space), or null. */
+  private guideTarget(): Vector3 | null {
+    const i = this.fireIndex;
+    if (i < 0) return null;
+    if (this.step === 'find-fire' && this.city.openIndex < 0) {
+      this.city.roofWorld(i, this.v2);
+      this.anchor.worldToLocal(this.v2);
+      this.v2.y += 0.12;
+      return this.v2;
+    }
+    if (this.step === 'touch-floor' && this.city.openIndex === i) {
+      const f = this.data!.buildings[i].functions.findIndex((x) => x.failing);
+      if (f < 0) return null;
+      this.city.floorWorld(f, this.v2, true);
+      this.anchor.worldToLocal(this.v2);
+      this.v2.z += 0.06;
+      this.v2.x += this.city.inspectX > 0 ? 0.06 : -0.06;
+      return this.v2;
+    }
+    return null;
   }
 
   private updateHands(dt: number): void {
@@ -801,6 +897,7 @@ export class RepoCityDirector extends createSystem({
   private updateInteraction(dt: number): void {
     const now = performance.now();
     const H = this.hands.both;
+    if (H[0].pinchStarted || H[1].pinchStarted) this.idleT = 0;
     // Fingertips and pinch points in city units.
     this.city.units.updateWorldMatrix(true, false);
     this.mInv.copy(this.city.units.matrixWorld).invert();

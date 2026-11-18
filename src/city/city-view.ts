@@ -18,6 +18,7 @@ import {
   Object3D,
   PlaneGeometry,
   Quaternion,
+  RingGeometry,
   Shape,
   ShaderMaterial,
   Vector3,
@@ -58,6 +59,7 @@ export class CityView {
   readonly uniforms: BuildingUniforms;
 
   private plinth: Mesh;
+  private dust: Mesh;
   private contact: Mesh;
   private districtMesh: InstancedMesh;
   private buildingMesh: InstancedMesh;
@@ -138,6 +140,16 @@ export class CityView {
     this.contact.position.y = -PLINTH_H + 0.0008;
     this.contact.renderOrder = -1;
     this.root.add(this.contact);
+
+    // Dust ring that rolls out across the table as the city rises.
+    this.dust = new Mesh(
+      new RingGeometry(0.2, 0.34, 64),
+      new MeshBasicMaterial({ color: '#efe6d6', transparent: true, opacity: 0, depthWrite: false }),
+    );
+    this.dust.rotation.x = -Math.PI / 2;
+    this.dust.position.y = -PLINTH_H + 0.002;
+    this.dust.renderOrder = 2;
+    this.root.add(this.dust);
 
     const box = new BoxGeometry(1, 1, 1);
     box.translate(0, 0.5, 0);
@@ -269,6 +281,8 @@ export class CityView {
   /** Skip the rise (presets, 2D page). */
   finishRise(): void {
     this.riseClock = -1;
+    this.plinth.scale.set(1, 1, 1);
+    (this.dust.material as MeshBasicMaterial).opacity = 0;
     this.rise.fill(1);
     this.writeBuildings();
   }
@@ -285,6 +299,12 @@ export class CityView {
     let moved = false;
     if (this.riseClock >= 0) {
       this.riseClock += dt;
+      // the plinth grows out of the table first, then dust rolls out
+      const pk = ease(Math.min(1, this.riseClock / 0.45));
+      this.plinth.scale.set(0.96 + 0.04 * pk, Math.max(0.02, pk), 0.96 + 0.04 * pk);
+      const dk = Math.min(1, Math.max(0, (this.riseClock - 0.25) / 1.6));
+      this.dust.scale.setScalar(0.8 + dk * 1.1);
+      (this.dust.material as MeshBasicMaterial).opacity = dk > 0 && dk < 1 ? 0.45 * Math.sin(Math.PI * dk) : 0;
       let done = true;
       for (let i = 0; i < this.buildingMesh.count; i++) {
         const t = (this.riseClock - 0.3 - this.riseDelay[i]) / 0.9;
