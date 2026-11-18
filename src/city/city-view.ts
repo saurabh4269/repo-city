@@ -22,11 +22,15 @@ import {
   Shape,
   ShaderMaterial,
   Vector3,
+  CylinderGeometry,
+  SphereGeometry,
+  ConeGeometry,
   type Texture,
 } from '@iwsdk/core';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Building, CityData } from './types.js';
 import { createBuildingMaterial, patchGroundMaterial, type BuildingUniforms } from './building-material.js';
-import { cityDetails } from './details.js';
+import { cityDetails, landmarkSize } from './details.js';
 import { MAX_LIT_BUILDINGS } from './light-layout.js';
 
 /** Width of the city square on the table, metres (city units × this). */
@@ -84,6 +88,10 @@ export class CityView {
   private fRoof: InstancedBufferAttribute;
   private fMat: InstancedBufferAttribute;
   private stackShadow: Mesh;
+  /** The entry building's dome (one merged, vertex-coloured mesh). */
+  private landmark: Mesh;
+  /** Index of the package's entry building (-1 none). */
+  entryIndex = -1;
 
   /** Detail view: floors of the open building. */
   readonly detail = new Group();
@@ -215,6 +223,11 @@ export class CityView {
     this.buildingMesh.frustumCulled = false;
     this.units.add(this.buildingMesh);
 
+    this.landmark = new Mesh(makeLandmarkGeometry(), new MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.25 }));
+    this.landmark.name = 'city-landmark';
+    this.landmark.visible = false;
+    this.units.add(this.landmark);
+
     // Green confirmation pulses during the test run (additive, one draw).
     this.pulseMesh = new InstancedMesh(
       box,
@@ -322,6 +335,7 @@ export class CityView {
     this.aMat.needsUpdate = true;
     this.aTile.needsUpdate = true;
     this.setLight(null); // until this city's bake loads
+    this.entryIndex = data.entry ? data.buildings.slice(0, n).findIndex((b) => b.id === data.entry) : -1;
     this.openIndex = -1;
     this.open = 0;
     this.detail.visible = false;
@@ -332,7 +346,7 @@ export class CityView {
 
   /** Deterministic rooftop plant on bigger buildings, and trees in the open parts of each district (shared with the light bake). */
   private buildDetails(data: CityData, n: number): void {
-    const det = cityDetails(data.buildings, data.districts, n);
+    const det = cityDetails(data.buildings, data.districts, n, this.entryIndex);
     this.roofBitOf = det.roofBitOf;
     this.roofBitBox = det.roofBitBox;
     this.roofBits.count = det.roofBitOf.length;
@@ -463,6 +477,17 @@ export class CityView {
       this.roofBits.setMatrixAt(k, this.m);
     }
     this.roofBits.instanceMatrix.needsUpdate = true;
+    const e = this.entryIndex;
+    if (e >= 0) {
+      const b = data.buildings[e];
+      const r = this.rise[e];
+      const { r: lr } = landmarkSize(b);
+      // the dome grows in as its building finishes rising; it leaves with the building when that one is opened
+      const k = Math.max(0, Math.min(1, (r - 0.85) / 0.15));
+      this.landmark.visible = k > 0.001 && !(e === this.openIndex && this.open > 0.001);
+      this.landmark.position.set(b.x, b.h * r, b.z);
+      this.landmark.scale.set(lr * k, lr * k, lr * k);
+    } else this.landmark.visible = false;
     let avg = 0;
     for (let i = 0; i < this.buildingMesh.count; i++) avg += this.rise[i];
     avg = this.buildingMesh.count ? Math.min(1, avg / this.buildingMesh.count) : 1;
@@ -706,6 +731,48 @@ function roundedRect(half: number, r: number): Shape {
   s.lineTo(-half, -half + r);
   s.quadraticCurveTo(-half, -half, -half + r, -half);
   return s;
+}
+
+/**
+ * A civic roof for the entry building, unit scale (drum radius 1, base at
+ * y = 0): a cornice, a drum ringed with dark windows, a stone dome, a gilt
+ * lantern and finial. One merged geometry with vertex colours (one draw call),
+ * darker toward its foot (baked AO).
+ */
+function makeLandmarkGeometry(): BufferGeometry {
+  const paint = (g: BufferGeometry, hex: string, dy: number, aoFoot = 0.75): BufferGeometry => {
+    g.translate(0, dy, 0);
+    const c = new Color(hex);
+    const pos = g.getAttribute('position');
+    const col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const ao = aoFoot + (1 - aoFoot) * Math.min(1, Math.max(0, pos.getY(i) / 0.6));
+      col[i * 3] = c.r * ao;
+      col[i * 3 + 1] = c.g * ao;
+      col[i * 3 + 2] = c.b * ao;
+    }
+    g.setAttribute('color', new BufferAttribute(col, 3));
+    g.deleteAttribute('uv');
+    return g.index ? g.toNonIndexed() : g;
+  };
+  const parts = [
+    paint(new BoxGeometry(2.3, 0.14, 2.3), '#d6cebf', 0.07, 0.6), // cornice
+    paint(new CylinderGeometry(1, 1.04, 0.62, 16), '#c9c0b1', 0.14 + 0.31), // drum, the plinth's warm stone
+  ];
+  // dark window slits around the drum
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2;
+    const w = paint(new BoxGeometry(0.16, 0.36, 0.06), '#2c3a45', 0.47, 1);
+    w.rotateY(-a);
+    w.translate(Math.sin(a) * 1.0, 0, Math.cos(a) * 1.0);
+    parts.push(w);
+  }
+  parts.push(
+    paint(new SphereGeometry(0.98, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), '#d3cabb', 0.76, 1), // dome, warm stone
+    paint(new CylinderGeometry(0.2, 0.22, 0.3, 10), '#d9b25c', 1.86, 1), // lantern
+    paint(new ConeGeometry(0.12, 0.5, 10), '#e4c36e', 2.26, 1), // gold finial
+  );
+  return mergeGeometries(parts)!;
 }
 
 /**

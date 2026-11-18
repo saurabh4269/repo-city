@@ -155,6 +155,7 @@ function drawBuilding(ctx: CanvasRenderingContext2D, a: Area, b: Building, floor
   const district = c?.districts.find((d) => d.id === b.district);
   const f = b.functions[floor < 0 ? b.functions.length - 1 : floor];
   let x = a.x;
+  if (c?.entry === b.id) x += chip(ctx, 'Entry point', x, a.y, 'rgba(217,178,92,0.3)', '#f3d48a', 30) + 12;
   if (district) x += chip(ctx, district.name, x, a.y, 'rgba(255,255,255,0.12)', UI.text, 30) + 16;
   fitText(ctx, `${b.path} · floor ${b.functions.indexOf(f) + 1} of ${b.functions.length}`, x, a.y - 4, a.w - (x - a.x), 60, { size: 50, weight: 800 });
   fitText(ctx, b.summary, a.x, a.y + 62, a.w, 50, { size: 34, color: UI.dim });

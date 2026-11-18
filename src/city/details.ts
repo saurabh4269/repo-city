@@ -23,6 +23,15 @@ interface Rect {
   d: number;
 }
 
+/**
+ * The entry building's civic roof (a dome on a drum), city units: drum radius
+ * `r` and total height `h` above the roof. Shared with the light bake.
+ */
+export function landmarkSize(b: { w: number; d: number }): { r: number; h: number } {
+  const r = Math.min(0.045, Math.max(0.02, Math.min(b.w, b.d) * 0.36));
+  return { r, h: r * 2.6 };
+}
+
 export interface CityDetails {
   /** Owning building index per rooftop box. */
   roofBitOf: Int16Array;
@@ -32,14 +41,14 @@ export interface CityDetails {
   treeAt: Float32Array;
 }
 
-export function cityDetails(buildings: readonly Box[], districts: readonly Rect[], n = buildings.length): CityDetails {
+export function cityDetails(buildings: readonly Box[], districts: readonly Rect[], n = buildings.length, entry = -1): CityDetails {
   const bits: number[] = [];
   const of: number[] = [];
   let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < n && of.length < MAX_ROOF_BITS; i++) {
     const b = buildings[i];
-    if (b.w < 0.06 || b.d < 0.06) continue;
+    if (b.w < 0.06 || b.d < 0.06 || i === entry) continue; // the entry building's roof carries the dome
     const count = 1 + Math.floor(rnd() * Math.min(3, (b.w * b.d) / 0.004));
     for (let k = 0; k < count && of.length < MAX_ROOF_BITS; k++) {
       const sw = 0.012 + rnd() * 0.02, sd = 0.012 + rnd() * 0.02, sh = 0.008 + rnd() * 0.014;

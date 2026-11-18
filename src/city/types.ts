@@ -23,6 +23,8 @@ export interface CityData {
   /** The one-line fix, and the run after it. Absent when nothing fails. */
   fix?: Fix;
   guide: Guide;
+  /** Building id of the package's entry file (package.json main/exports, else index.*). Drawn as a domed civic building. */
+  entry?: string;
   /** Baked light atlas (AO + sun visibility, src/city/light-layout.ts), a file name next to this JSON. Optional. */
   light?: string;
 }

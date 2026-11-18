@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url'
 import { parseSource, excerpt, bugExcerpt } from './parser.mjs'
 import { layoutCity } from './layout.mjs'
 import { parseArgs } from './run-tests.mjs'
+import { resolveEntry } from './entry.mjs'
 
 const SRC_EXT = /\.(c?js|mjs|ts|tsx|jsx|mts|cts)$/
 const clip = (s, n) => {
@@ -217,6 +218,11 @@ export function buildCity (args) {
   const fill = (str) => str && str.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
   if (fix) fix.explanation = fill(fix.explanation)
 
+  // ---- entry point (the town hall)
+  let pkg = null
+  try { pkg = JSON.parse(fs.readFileSync(path.join(args.root, 'package.json'), 'utf8')) } catch { /* none */ }
+  const entry = resolveEntry(pkg, buildings.map((b) => b.id), base)
+
   const city = {
     version: 1,
     id,
@@ -241,6 +247,7 @@ export function buildCity (args) {
     streets,
     run,
     ...(fix ? { fix } : {}),
+    ...(entry ? { entry } : {}),
     guide: {
       intro: clip(fill(sm.guide?.intro) || `This is ${name}. Each building is a file; taller means more branching logic.`, 200),
       onFire: clip(fill(sm.guide?.onFire) || 'This building is on fire because a test that exercises it is failing.', 200),

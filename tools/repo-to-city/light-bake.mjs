@@ -17,7 +17,7 @@ import os from 'node:os'
 import path from 'node:path'
 import zlib from 'node:zlib'
 import { execFileSync } from 'node:child_process'
-import { cityDetails, TREE_BASE_Y } from '../../src/city/details.ts'
+import { cityDetails, landmarkSize, TREE_BASE_Y } from '../../src/city/details.ts'
 import { ATLAS, GROUND_PX, GROUND_HALF, TILE, FACES, MAX_LIT_BUILDINGS, SUN_DIR, tileOrigin } from '../../src/city/light-layout.ts'
 
 const AO_RAYS = 40
@@ -32,9 +32,15 @@ const FOOTPRINT_AO = 0.4
 /** Boxes as [minX, minY, minZ, maxX, maxY, maxZ]. */
 function occluders (city) {
   const b = city.buildings.slice(0, MAX_LIT_BUILDINGS)
-  const det = cityDetails(b, city.districts)
+  const entry = city.entry ? b.findIndex((x) => x.id === city.entry) : -1
+  const det = cityDetails(b, city.districts, b.length, entry)
   const boxes = []
   for (const x of b) boxes.push([x.x - x.w / 2, 0, x.z - x.d / 2, x.x + x.w / 2, x.h, x.z + x.d / 2])
+  if (entry >= 0) {
+    // the dome on the entry building, as its drum (a box inside the cylinder)
+    const e = b[entry], { r, h } = landmarkSize(e), k = r * 0.8
+    boxes.push([e.x - k, e.h, e.z - k, e.x + k, e.h + h * 0.6, e.z + k])
+  }
   for (let k = 0; k < det.roofBitOf.length; k++) {
     const p = b[det.roofBitOf[k]]
     const [ox, oz, sw, sd, sh] = det.roofBitBox.subarray(k * 5, k * 5 + 5)

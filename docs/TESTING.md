@@ -27,7 +27,7 @@ The journey, hands only (`xr set-input-mode hand`), seated at the emulated livin
 | 1 | Placement finds the labelled table (preview frame on the plane) |
 | 2 | A pinch places the city on the real table, then it rises |
 | 3 | The city sits on the table plane (y within 5 cm) |
-| 4 | The first prompt offers the burning building |
+| 4 | The guide names the entry building first, then the first prompt offers the burning building |
 | 5 | Pinching the burning roof opens that building (tap; or `--drag`: pinch and lift 7 cm) |
 | 6 | Touching the smouldering floor with the fingertip selects it (failing = true) |
 | 7 | The fire report offers the fix |

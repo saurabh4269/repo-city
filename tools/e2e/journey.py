@@ -72,7 +72,12 @@ check('placed on the real table', m.group(1) == 'table', m.group(0)[:120])
 time.sleep(1.2)
 tour('rising')
 wait_for(r'phase city', 20)
+m = wait_for(r'guide entry (\S+)', 5)
 t = field(wait_for(r'targets layout='), 'layout')
+time.sleep(1.5)
+tour('entry')
+m2 = wait_for(r'guide fire (\S+)', 8)
+check('the guide names the town hall, then the fire', bool(m and m2), f"{m.group(0) if m else 'no entry'} -> {m2.group(0) if m2 else 'no fire line'}")
 fire, center = t['fire'], t['center']
 check('city sits on the table', abs(center[1] - 0.438) < 0.05, f'center={center}')
 plaques = t['plaques']

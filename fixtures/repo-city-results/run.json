@@ -1,9 +1,9 @@
 {
   "runner": "node:test (node 26.13.0)",
-  "total": 33,
-  "passed": 33,
+  "total": 39,
+  "passed": 39,
   "failed": 0,
-  "durationMs": 663,
+  "durationMs": 654,
   "files": {},
   "failures": []
 }

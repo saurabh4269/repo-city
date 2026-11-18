@@ -23,6 +23,7 @@ import { CITY_SIZE, CityView, PLINTH_H } from './city/city-view.js';
 import type { Building, CityData, Failure } from './city/types.js';
 import { createDeskEnvironment } from './city/environment.js';
 import { SUN_DIR } from './city/light-layout.js';
+import { landmarkSize } from './city/details.js';
 import { loadDataTexture } from './city/textures.js';
 import { Fire } from './fx/fire.js';
 import { Sparks } from './fx/sparks.js';
@@ -531,6 +532,22 @@ export class RepoCityDirector extends createSystem({
   private idleT = 0;
   /** Seconds the guide spends flying over the current target. */
   private guideBeacon = 0;
+  /** The entry tour: seconds left pointing at the entry building, once per city, before the fire. */
+  private entryT = 0;
+  private entryShown = new Set<string>();
+
+  /** Point at the entry building first (once per city). True when the tour started. */
+  private entryTour(d: CityData): boolean {
+    const e = this.city.entryIndex;
+    if (e < 0 || this.entryShown.has(d.id) || this.city.openIndex >= 0) return false;
+    this.entryShown.add(d.id);
+    this.entryT = 3.5;
+    this.guideBeacon = 3.5;
+    const b = d.buildings[e];
+    this.guide(`This is ${b.name}, the town hall. Everything that uses ${d.name} enters here.`);
+    log(`guide entry ${b.id}`);
+    return true;
+  }
   private readonly guideHome = new Vector3();
   private readonly guideGoal = new Vector3();
   private guide(text: string, speak = true): void {
@@ -593,9 +610,11 @@ export class RepoCityDirector extends createSystem({
     const fireB = this.fireIndex >= 0 ? d.buildings[this.fireIndex] : null;
     switch (this.step) {
       case 'find-fire':
+        this.setPlaques(fireB ? [{ id: 'goto-fire', text: 'Open the fire', accent: UI.fire }, nextCityPlaque(this)] : [nextCityPlaque(this)]);
+        if (this.entryTour(d)) break;
         this.guideBeacon = 4;
         this.guide(fireB ? `A test is failing, so ${fireB.name} is on fire. Pinch its roof and lift it off.` : d.guide.intro);
-        this.setPlaques(fireB ? [{ id: 'goto-fire', text: 'Open the fire', accent: UI.fire }, nextCityPlaque(this)] : [nextCityPlaque(this)]);
+        if (fireB) log(`guide fire ${fireB.id}`);
         break;
       case 'touch-floor':
         this.guideBeacon = 4;
@@ -616,6 +635,10 @@ export class RepoCityDirector extends createSystem({
         this.setPlaques([{ id: 'explore', text: 'Keep exploring' }, nextCityPlaque(this), { id: 'again', text: 'Start again' }]);
         break;
       case 'free':
+        if (this.entryTour(d)) {
+          this.setPlaques([nextCityPlaque(this), { id: 'again', text: 'Start again' }]);
+          break;
+        }
         this.guide(this.city.openIndex >= 0 ? 'Touch a floor to read its code. Pinch the roof to close.' : `${d.guide.intro} Pinch any roof to look inside.`);
         this.setPlaques(this.city.openIndex >= 0 ? [{ id: 'close', text: 'Close the building' }, nextCityPlaque(this)] : [nextCityPlaque(this), { id: 'again', text: 'Start again' }]);
         break;
@@ -876,6 +899,7 @@ export class RepoCityDirector extends createSystem({
       case 'rising':
         if (!this.city.rising && this.phaseT > 4.5) {
           this.setPhase('city');
+          if (this.preset && this.data) this.entryShown.add(this.data.id); // presets skip the town-hall intro
           this.applyStep();
           this.applyPreset();
           this.logTargets();
@@ -915,6 +939,10 @@ export class RepoCityDirector extends createSystem({
       this.fireLight.intensity = 0.06 * (0.8 + 0.2 * Math.sin(time * 23) * Math.sin(time * 7.7));
     } else this.fireLight.intensity = Math.max(0, this.fireLight.intensity - dt * 0.2);
     if (this.immersive) sfx.setFire(this.phase === 'placing' ? 0 : this.fire.level * (this.city.openIndex === this.fireIndex ? 0.6 : 0.35));
+    if (this.entryT > 0 && this.phase === 'city') {
+      this.entryT -= dt;
+      if (this.entryT <= 0 && (this.step === 'find-fire' || this.step === 'free') && this.city.openIndex < 0) this.applyStep();
+    }
     this.animateGuide(time, dt);
     this.perfLog(time);
     this.updateFloorCard();
@@ -1016,6 +1044,13 @@ export class RepoCityDirector extends createSystem({
 
   /** Where the guide points for the current step (anchor space), or null. */
   private guideTarget(): Vector3 | null {
+    const e = this.city.entryIndex;
+    if (this.entryT > 0 && e >= 0 && this.city.openIndex < 0) {
+      this.city.roofWorld(e, this.v2);
+      this.anchor.worldToLocal(this.v2);
+      this.v2.y += 0.1 + landmarkSize(this.data!.buildings[e]).h * CITY_SIZE;
+      return this.v2;
+    }
     const i = this.fireIndex;
     if (i < 0) return null;
     if (this.step === 'find-fire' && this.city.openIndex < 0) {
