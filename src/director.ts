@@ -63,6 +63,7 @@ function log(event: string): void {
 /** City local (metres from the plinth top centre) → toward the user is +Z. */
 const PANEL_POS = new Vector3(0, 0.27, -0.3);
 const PANEL_TILT = -0.16;
+const UP = new Vector3(0, 1, 0);
 const PLAQUE_Z = CITY_SIZE / 2 + 0.06;
 
 export class RepoCityDirector extends createSystem({
@@ -189,7 +190,9 @@ export class RepoCityDirector extends createSystem({
     this.virtualDesk = new Mesh(new BoxGeometry(0.78, 0.03, 0.56), new MeshStandardMaterial({ color: '#3a2a20', roughness: 0.6 }));
     this.virtualDesk.position.set(0, -0.015, 0.03);
     this.virtualDesk.visible = false;
-    this.anchor.add(this.virtualDesk);
+    this.anchor.add(this.viewFrame);
+    this.viewFrame.name = 'view-frame';
+    this.viewFrame.add(this.virtualDesk);
 
     // Main panel standing behind the city, tilted back a little.
     this.panel = new MainPanel();
@@ -199,17 +202,17 @@ export class RepoCityDirector extends createSystem({
     this.panel.card.mesh.renderOrder = 1;
     this.panel.card.mesh.position.copy(PANEL_POS);
     this.panel.card.mesh.rotation.x = PANEL_TILT;
-    this.anchor.add(this.panel.card.mesh);
+    this.viewFrame.add(this.panel.card.mesh);
 
     // The guide: a small lantern drone at the panel's top-left corner.
     this.guideOrb = makeGuide();
     this.guideOrb.position.set(-PANEL_W / 2 - 0.035, PANEL_POS.y + PANEL_H / 2 - 0.04, PANEL_POS.z + 0.02);
-    this.anchor.add(this.guideOrb);
+    this.viewFrame.add(this.guideOrb);
 
     this.plaques = new Plaques();
     this.plaques.group.position.set(0, 0, PLAQUE_Z);
     this.plaques.onPress = (id) => this.onPlaque(id);
-    this.anchor.add(this.plaques.group);
+    this.viewFrame.add(this.plaques.group);
 
     this.hoverCard = new CanvasCard(0.15, 0.05, 2400);
     this.hoverCard.mesh.renderOrder = 12;
@@ -703,6 +706,7 @@ export class RepoCityDirector extends createSystem({
   private openBuilding(i: number): void {
     if (i < 0) return;
     if (this.city.openIndex !== i) {
+      if (this.city.openIndex < 0) this.setInspect(this.inspectSide);
       this.city.setOpen(i);
       log(`flow ${this.city.setRoutes(i)}`);
       this.tipFloorPrev = -2;
@@ -1068,6 +1072,7 @@ export class RepoCityDirector extends createSystem({
       this.entryT -= dt;
       if (this.entryT <= 0 && (this.step === 'find-fire' || this.step === 'free') && this.city.openIndex < 0) this.applyStep();
     }
+    this.updateFacing(dt);
     this.animateGuide(time, dt);
     this.perfLog(time);
     this.updateFloorCard();
@@ -1078,6 +1083,77 @@ export class RepoCityDirector extends createSystem({
   }
 
   private readonly qEnv = new Quaternion();
+
+  // ───────────────────────── facing the current viewer
+  /**
+   * The panel, the guide's home, the plaques (and the virtual desk) live in
+   * `viewFrame`, which turns around the city's centre so they face whoever is
+   * sitting at the table now: the headset handed to someone in another seat,
+   * a judge on the other side, or a recenter. It re-faces once the viewer is
+   * more than ~28° off (no swimming while you lean), eases there, and logs.
+   */
+  private readonly viewFrame = new Group();
+  /** Which side of the city (as the current viewer sees it) an opened building stands: +1 right, -1 left. */
+  private inspectSide = 1;
+  /** Put the opened building beside the city on the viewer's left or right (city units, through the viewer frame and the city's own turn). */
+  private setInspect(side: number): void {
+    this.inspectSide = side;
+    const a = this.faceYaw - this.userYaw;
+    const x = side * 0.66, z = 0.12;
+    this.city.inspectX = x * Math.cos(a) + z * Math.sin(a);
+    this.city.inspectZ = -x * Math.sin(a) + z * Math.cos(a);
+  }
+  private faceYaw = 0;
+  private refacing = false;
+  private snapFacing = false;
+  private resetSpace: XRReferenceSpace | null = null;
+  private readonly onSpaceReset = () => {
+    log('reference space reset');
+    this.snapFacing = true;
+  };
+
+  private updateFacing(dt: number): void {
+    if (this.phase === 'page' || this.phase === 'placing') return;
+    // a recenter (Quest system gesture, or a hand-off) fires 'reset' on the reference space
+    const rs = this.renderer.xr.isPresenting ? this.renderer.xr.getReferenceSpace() : null;
+    if (rs !== this.resetSpace) {
+      this.resetSpace?.removeEventListener('reset', this.onSpaceReset);
+      rs?.addEventListener('reset', this.onSpaceReset);
+      this.resetSpace = rs;
+    }
+    this.readHead();
+    this.v.copy(this.head);
+    this.anchor.worldToLocal(this.v);
+    if (Math.hypot(this.v.x, this.v.z) < 0.12) return; // right above the city: keep what we have
+    const target = Math.atan2(this.v.x, this.v.z);
+    let diff = target - this.faceYaw;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    if (this.snapFacing) {
+      this.snapFacing = false;
+      this.faceYaw = target;
+      this.viewFrame.rotation.y = this.faceYaw;
+      this.facedLog(0);
+      return;
+    }
+    if (!this.refacing && Math.abs(diff) > 0.5) this.refacing = true;
+    if (!this.refacing) return;
+    this.faceYaw += diff * Math.min(1, dt * 3.5);
+    this.viewFrame.rotation.y = this.faceYaw;
+    if (Math.abs(diff) < 0.02) {
+      this.refacing = false;
+      this.facedLog(diff);
+    }
+  }
+
+  private facedLog(err: number): void {
+    if (this.city.openIndex >= 0) this.setInspect(this.inspectSide); // the open building moves to the new viewer's side
+    log(`faced yaw=${this.faceYaw.toFixed(2)} err=${((err * 180) / Math.PI).toFixed(1)}`);
+    if (import.meta.env.DEV) {
+      this.anchor.updateWorldMatrix(true, true);
+      this.panel.card.mesh.getWorldPosition(this.v2);
+      log(`plaques ${Object.keys(this.plaques.centres()).join(',')} layout=${JSON.stringify(this.plaques.centres())} panel=${JSON.stringify(this.v2.toArray().map((x) => +x.toFixed(3)))}`);
+    }
+  }
 
   private perfAt = 0;
   /** Dev: draw calls and triangles every 5 s (the emulator renders each eye: halve them). */
@@ -1161,7 +1237,8 @@ export class RepoCityDirector extends createSystem({
     if (this.guideBeacon > 0 && this.phase === 'city') {
       this.guideBeacon -= dt;
       const t = this.guideTarget();
-      if (t) goal = this.guideGoal.copy(t);
+      // targets are in anchor space; the guide lives in the viewer frame
+      if (t) goal = this.guideGoal.copy(t).applyAxisAngle(UP, -this.faceYaw);
     }
     this.guideOrb.position.lerp(goal, 0.06);
     this.guideOrb.rotation.y = time * 0.8;
@@ -1190,7 +1267,8 @@ export class RepoCityDirector extends createSystem({
       this.city.floorWorld(f, this.v2, true);
       this.anchor.worldToLocal(this.v2);
       this.v2.z += 0.06;
-      this.v2.x += this.city.inspectX > 0 ? 0.06 : -0.06;
+      this.v2.x += this.inspectSide * Math.cos(this.faceYaw) * 0.06;
+      this.v2.z -= this.inspectSide * Math.sin(this.faceYaw) * 0.06;
       return this.v2;
     }
     return null;
@@ -1331,7 +1409,7 @@ export class RepoCityDirector extends createSystem({
     if (hand.pinchStarted && hp >= 0 && hp !== open) {
       if (open >= 0) this.city.setOpen(-1);
       // the building comes out on the side of the hand that took it
-      this.city.inspectX = hand.side === 'left' ? -0.66 : 0.66;
+      this.setInspect(hand.side === 'left' ? -1 : 1);
       this.city.setOpen(hp);
       log(`flow ${this.city.setRoutes(hp)}`);
       this.beginDrag(hand, 'lift', now);
@@ -1416,8 +1494,11 @@ export class RepoCityDirector extends createSystem({
     this.floorCard.opacity = Math.min(1, this.floorCard.opacity + 0.15);
     const o = f * 6;
     const bx = this.city.floorBoxes;
-    const side = this.city.inspectX > 0 ? -1 : 1;
-    this.v.set(bx[o] + side * (bx[o + 3] + 0.17), bx[o + 1], bx[o + 2] + bx[o + 5]);
+    // the label sits on the city side of the stack, as the current viewer sees it
+    const a = this.faceYaw - this.userYaw;
+    const sx = -this.inspectSide * Math.cos(a), sz = this.inspectSide * Math.sin(a);
+    const r = bx[o + 3] + 0.17;
+    this.v.set(bx[o] + sx * r, bx[o + 1], bx[o + 2] + bx[o + 5] + sz * r);
     this.city.units.localToWorld(this.v);
     this.anchor.worldToLocal(this.v);
     this.floorCard.mesh.position.copy(this.v);

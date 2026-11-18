@@ -120,8 +120,12 @@ const CLIENT = String.raw`(() => {
       };
     }
   };
-  wrapXR();
-  setInterval(wrapXR, 500);
+  // XR hooks on the headset only: in the desktop emulator they wrap IWER's session (and ask it for an
+  // extra reference space), which the e2e suite doesn't need. Console forwarding stays on everywhere.
+  if (/OculusBrowser|Quest/.test(navigator.userAgent)) {
+    wrapXR();
+    setInterval(wrapXR, 500);
+  }
   const pct = (a, p) => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
   setInterval(() => {
     if (inXR && frames.length) {

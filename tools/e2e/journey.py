@@ -157,7 +157,19 @@ check('two-hand pinch scales the city', float(m.group(1)) > 1.08, m.group(0))
 tour('scaled')
 park('hand-left')
 
-# 6. Next city
+# 6. A second person in another seat: the panel and plaques turn to face them
+cx, cy, cz = center
+look_at((cx, cy + 0.02, cz), head=(cx + 0.6, cy + 0.45, cz + 0.05))
+m = wait_for(r'plaques (\S+) layout=(\{.*\}) panel=(\[[^\]]*\])', 8)
+import json as _json
+plaques = _json.loads(m.group(2))
+panel = _json.loads(m.group(3))
+px = [v[0] for v in plaques.values()]
+check('panel and plaques face a viewer in another seat',
+      panel[0] < cx - 0.15 and all(x > cx + 0.15 for x in px), f'panel x={panel[0]:.2f} plaques x={[round(x, 2) for x in px]} city x={cx:.2f}')
+tour('second-seat')
+
+# 7. Next city, poked from the new seat
 plaques = field(wait_for(r'plaques (\S+) layout=', 6), 'layout') if 'next-city' not in plaques else plaques
 poke_down(plaques['next-city'])
 mf = wait_for(r'flow (\d+)', 8)
