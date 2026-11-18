@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { run } from 'node:test'
 import { runTests } from './run-tests.mjs'
 import { buildCity } from './index.mjs'
+import { writeLight } from './light-bake.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PROJECT = path.resolve(HERE, '..', '..')
@@ -48,6 +49,7 @@ const semver = buildCity({
   fix: fixFile,
   summaries: p('tools/repo-to-city/semver-summaries.json'),
 })
+semver.light = writeLight(semver, semverOut)
 report(semver, semverOut, writeJson(semverOut, semver))
 
 // ---------- repo-city (this app) ----------
@@ -87,6 +89,7 @@ const repoCity = buildCity({
   tests: unitFile,
   summaries: p('tools/repo-to-city/repo-city-summaries.json'),
 })
+repoCity.light = writeLight(repoCity, repoOut)
 report(repoCity, repoOut, writeJson(repoOut, repoCity))
 if (unit.failed) {
   console.error(`warning: ${unit.failed} tool test(s) failed; see ${rel(unitFile)}`)

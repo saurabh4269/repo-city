@@ -21,6 +21,9 @@ import {
 import { sfx } from './audio.js';
 import { CITY_SIZE, CityView, PLINTH_H } from './city/city-view.js';
 import type { Building, CityData, Failure } from './city/types.js';
+import { createDeskEnvironment } from './city/environment.js';
+import { SUN_DIR } from './city/light-layout.js';
+import { loadDataTexture } from './city/textures.js';
 import { Fire } from './fx/fire.js';
 import { Sparks } from './fx/sparks.js';
 import { Hands, type HandState } from './input/hands.js';
@@ -161,27 +164,27 @@ export class RepoCityDirector extends createSystem({
     this.fireLight = new PointLight('#ff8a3a', 0, 0.35, 2);
     this.city.root.add(this.fireLight);
 
-    // One key light with a tight shadow camera over the city, refreshed only when something moves.
-    this.sun = new DirectionalLight('#fff3e2', 2.2);
-    this.sun.position.set(0.28, 0.62, 0.22);
-    this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(1024, 1024);
-    const sc = this.sun.shadow.camera;
-    sc.left = sc.bottom = -0.42;
-    sc.right = sc.top = 0.42;
-    sc.near = 0.1;
-    sc.far = 1.5;
-    this.sun.shadow.bias = -0.0008;
-    this.sun.shadow.normalBias = 0.002;
-    this.sun.shadow.autoUpdate = false;
-    this.anchor.add(this.sun);
-    this.anchor.add(this.sun.target);
-    this.renderer.shadowMap.enabled = true;
+    // One key light, no runtime shadow map: its shadows and the ambient occlusion are baked per
+    // city (tools/repo-to-city/light-bake.mjs) from the same direction. It lives in the city's
+    // frame so it turns with the city, exactly like the baked shadows.
+    this.sun = new DirectionalLight('#fff1dc', 3.0);
+    this.sun.position.set(SUN_DIR[0], SUN_DIR[1], SUN_DIR[2]);
+    this.manip.add(this.sun);
+    this.manip.add(this.sun.target);
+    this.renderer.shadowMap.enabled = false;
+    // Reflections from a room lit like the city (warm window where the key light comes from).
+    this.scene.environment = createDeskEnvironment(this.renderer);
+    this.scene.environmentIntensity = 0.5;
+    void Promise.all([loadDataTexture(`${import.meta.env.BASE_URL}textures/contact.ktx2`, this.renderer), loadDataTexture(`${import.meta.env.BASE_URL}textures/blob.ktx2`, this.renderer)])
+      .then(([contact, blob]) => {
+        this.city.setMasks(contact, blob);
+        this.plaques.setShadow(blob);
+      })
+      .catch((e) => log(`masks failed ${String(e)}`));
 
     // Virtual desk (only when no real table is found).
     this.virtualDesk = new Mesh(new BoxGeometry(0.78, 0.03, 0.56), new MeshStandardMaterial({ color: '#3a2a20', roughness: 0.6 }));
     this.virtualDesk.position.set(0, -0.015, 0.03);
-    this.virtualDesk.receiveShadow = true;
     this.virtualDesk.visible = false;
     this.anchor.add(this.virtualDesk);
 
@@ -246,7 +249,11 @@ export class RepoCityDirector extends createSystem({
     for (const id of CITIES) {
       try {
         const r = await fetch(`${import.meta.env.BASE_URL}cities/${id}.json`);
-        if (r.ok) this.cities.set(id, (await r.json()) as CityData);
+        if (r.ok) {
+          const data = (await r.json()) as CityData;
+          this.cities.set(id, data);
+          if (data.light) this.lightUrls.set(data.id, `${import.meta.env.BASE_URL}cities/${data.light}`);
+        }
       } catch {
         /* missing city: skipped */
       }
@@ -261,6 +268,7 @@ export class RepoCityDirector extends createSystem({
           if (data.version === 1 && Array.isArray(data.buildings)) {
             this.cities.set(data.id, data);
             CITIES.unshift(data.id);
+            if (data.light) this.lightUrls.set(data.id, new URL(data.light, new URL(own, location.href)).href);
           }
         }
       } catch {
@@ -268,6 +276,20 @@ export class RepoCityDirector extends createSystem({
       }
     }
     log(`cities loaded ${[...this.cities.keys()].join(',')}`);
+  }
+
+  /** Where each city's baked light atlas lives (next to its JSON). */
+  private lightUrls = new Map<string, string>();
+
+  private loadLight(data: CityData): void {
+    const url = this.lightUrls.get(data.id);
+    if (!url) return;
+    loadDataTexture(url, this.renderer)
+      .then((t) => {
+        if (this.data === data) this.city.setLight(t);
+        log(`light ${data.id} ${(t.image as { width?: number } | null)?.width ?? '?'}px`);
+      })
+      .catch((e) => log(`light failed ${data.id} ${String(e)}`));
   }
 
   private useCity(index: number): void {
@@ -278,6 +300,7 @@ export class RepoCityDirector extends createSystem({
     this.data = data;
     this.panel.city = data;
     this.city.setData(data);
+    this.loadLight(data);
     this.failure = data.run.failures[0] ?? null;
     this.fireIndex = this.failure ? this.city.indexOf(this.failure.building) : -1;
     this.journeyDone = !this.failure;
@@ -895,11 +918,13 @@ export class RepoCityDirector extends createSystem({
     this.animateGuide(time, dt);
     this.perfLog(time);
     this.updateFloorCard();
-    if (this.city.shadowDirty) {
-      this.city.shadowDirty = false;
-      this.sun.shadow.needsUpdate = true;
-    }
+    this.city.shadowDirty = false;
+    // the environment turns with the city (its window matches the key light)
+    this.city.root.getWorldQuaternion(this.qEnv);
+    this.scene.environmentRotation.y = Math.atan2(2 * (this.qEnv.w * this.qEnv.y + this.qEnv.x * this.qEnv.z), 1 - 2 * (this.qEnv.y * this.qEnv.y + this.qEnv.x * this.qEnv.x));
   }
+
+  private readonly qEnv = new Quaternion();
 
   private perfAt = 0;
   /** Dev: draw calls and triangles every 5 s (the emulator renders each eye: halve them). */
@@ -908,6 +933,65 @@ export class RepoCityDirector extends createSystem({
     this.perfAt = time;
     const r = this.renderer.info.render;
     log(`perf calls=${r.calls} tris=${r.triangles} xr=${this.renderer.xr.isPresenting}`);
+  }
+
+  /**
+   * Dev: render and memory numbers for the visual pass (tools/e2e/stats.py).
+   * Texture bytes are estimated from every texture reachable from the scene's
+   * materials, the scene environment and shadow maps (compressed: real mip bytes;
+   * otherwise w×h×bytes-per-pixel, ×4/3 with mipmaps).
+   */
+  stats(): Record<string, unknown> {
+    const r = this.renderer;
+    const seen = new Set<unknown>();
+    let bytes = 0;
+    const list: string[] = [];
+    type Tex = { isTexture?: boolean; isCompressedTexture?: boolean; isRenderTargetTexture?: boolean; image?: { width?: number; height?: number; depth?: number }; mipmaps?: { data?: ArrayBufferView }[]; type?: number; generateMipmaps?: boolean; name?: string; minFilter?: number };
+    const add = (t: Tex | null | undefined, label: string) => {
+      if (!t || !t.isTexture || seen.has(t)) return;
+      seen.add(t);
+      let b = 0;
+      if (t.isCompressedTexture && t.mipmaps?.length) for (const m of t.mipmaps) b += m.data?.byteLength ?? 0;
+      else {
+        const w = t.image?.width ?? 0, h = t.image?.height ?? 0, d = t.image?.depth ?? 1;
+        const bpp = t.type === 1016 /* HalfFloat */ ? 8 : t.type === 1015 /* Float */ ? 16 : 4;
+        b = w * h * d * bpp * (t.generateMipmaps !== false && t.minFilter !== 1006 && t.minFilter !== 1003 ? 4 / 3 : 1);
+      }
+      bytes += b;
+      list.push(`${label}:${t.image?.width}x${t.image?.height}${t.isCompressedTexture ? 'c' : ''}=${Math.round(b / 1024)}K`);
+    };
+    this.scene.traverse((o) => {
+      const mats = (o as { material?: unknown }).material;
+      for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) {
+        for (const [k, v] of Object.entries(m as object)) if ((v as Tex)?.isTexture) add(v as Tex, `${o.name || o.type}.${k}`);
+        const u = (m as { uniforms?: Record<string, { value: unknown }> }).uniforms;
+        if (u) for (const [k, v] of Object.entries(u)) if ((v?.value as Tex)?.isTexture) add(v.value as Tex, `${o.name || o.type}.${k}`);
+      }
+      const sh = (o as { shadow?: { map?: { width: number; height: number } | null } }).shadow;
+      if (sh?.map) {
+        bytes += sh.map.width * sh.map.height * 8; // colour + depth
+        list.push(`shadow:${sh.map.width}x${sh.map.height}=${Math.round((sh.map.width * sh.map.height * 8) / 1024)}K`);
+      }
+    });
+    add(this.scene.environment as Tex, 'scene.environment');
+    const xrt = r.xr.isPresenting ? ((r.xr as unknown as { getRenderTarget(): unknown }).getRenderTarget() as { samples?: number; isWebGLMultiviewRenderTarget?: boolean; width: number; height: number } | null) : null;
+    const session = r.xr.getSession();
+    const proj = session?.renderState.layers?.[0] as { fixedFoveation?: number } | undefined;
+    const base = session?.renderState.baseLayer as { antialias?: boolean; fixedFoveation?: number } | undefined;
+    return {
+      calls: r.info.render.calls,
+      tris: r.info.render.triangles,
+      programs: r.info.programs?.length,
+      gpuTextures: r.info.memory.textures,
+      geometries: r.info.memory.geometries,
+      texKB: Math.round(bytes / 1024),
+      textures: list,
+      contextAntialias: r.getContext().getContextAttributes()?.antialias,
+      xr: r.xr.isPresenting
+        ? { path: proj ? 'projection-layer' : 'XRWebGLLayer', samples: xrt?.samples, multiview: !!xrt?.isWebGLMultiviewRenderTarget, size: xrt ? `${xrt.width}x${xrt.height}` : null, layerAntialias: base?.antialias, foveation: proj?.fixedFoveation ?? base?.fixedFoveation }
+        : null,
+      shadowMap: r.shadowMap.enabled,
+    };
   }
 
   private viewportHeight(): number {

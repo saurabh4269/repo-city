@@ -258,6 +258,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
   const city = buildCity(args)
   fs.mkdirSync(path.dirname(path.resolve(args.out)), { recursive: true })
+  // baked AO + sun shadows next to the JSON (KTX2 with KTX-Software, else PNG); --no-light skips it
+  if (!args['no-light']) city.light = (await import('./light-bake.mjs')).writeLight(city, args.out)
   const json = JSON.stringify(city)
   fs.writeFileSync(args.out, json + '\n')
   console.log(`${city.id}: ${city.buildings.length} buildings, ${city.districts.length} districts, ${city.stats.functions} functions, ${city.streets.length} streets, ${city.run.total} tests (${city.run.failed} failing) -> ${args.out} (${(json.length / 1024).toFixed(1)} KB)`)

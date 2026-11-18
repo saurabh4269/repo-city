@@ -1,21 +1,15 @@
 {
   "version": "iwsdk.scene.v1",
   "units": "meters",
-  "components": {
-    "com.iwsdk.components.IBLGradient": {
-      "sky": [0.98, 0.96, 0.92, 1],
-      "equator": [0.82, 0.78, 0.72, 1],
-      "ground": [0.42, 0.38, 0.34, 1],
-      "intensity": 0.55
-    }
-  },
+  "components": {},
   "environment": {
     "toneMapping": "aces",
     "exposure": 1,
-    "shadows": true,
-    "shadowMapType": "pcf"
+    "shadows": false
   },
   "resources": {},
   "nodes": [],
-  "authoring": { "views": [] }
+  "authoring": {
+    "views": []
+  }
 }

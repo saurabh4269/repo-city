@@ -3,7 +3,6 @@ import {
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
-  CanvasTexture,
   Color,
   DoubleSide,
   DynamicDrawUsage,
@@ -23,9 +22,12 @@ import {
   Shape,
   ShaderMaterial,
   Vector3,
+  type Texture,
 } from '@iwsdk/core';
 import type { Building, CityData } from './types.js';
-import { createBuildingMaterial, type BuildingUniforms } from './building-material.js';
+import { createBuildingMaterial, patchGroundMaterial, type BuildingUniforms } from './building-material.js';
+import { cityDetails } from './details.js';
+import { MAX_LIT_BUILDINGS } from './light-layout.js';
 
 /** Width of the city square on the table, metres (city units × this). */
 export const CITY_SIZE = 0.46;
@@ -38,6 +40,8 @@ export const MAX_FLOORS = 24;
 /** Muted model-railway tints, one per district. */
 export const DISTRICT_TINTS_HEX = ['#8fb98a', '#e2c27f', '#8fa9cc', '#d98f74', '#ad9bd6', '#7fc0b8'];
 const DISTRICT_TINTS = DISTRICT_TINTS_HEX.map((c) => new Color(c));
+/** Roof roughness per district tint: glazed tiles, painted metal, gravel… (lower = more sheen). */
+const DISTRICT_ROOF_ROUGH = [0.5, 0.64, 0.4, 0.72, 0.52, 0.46];
 const BUILDING_BASE = new Color('#f4efe7');
 
 const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
@@ -74,7 +78,11 @@ export class CityView {
   private aInfo: InstancedBufferAttribute;
   private aFail: InstancedBufferAttribute;
   private aRoof: InstancedBufferAttribute;
+  private aMat: InstancedBufferAttribute;
+  private aTile: InstancedBufferAttribute;
   private fRoof: InstancedBufferAttribute;
+  private fMat: InstancedBufferAttribute;
+  private stackShadow: Mesh;
 
   /** Detail view: floors of the open building. */
   readonly detail = new Group();
@@ -132,20 +140,19 @@ export class CityView {
     const plinthGeo = new ExtrudeGeometry(shape, { depth: PLINTH_H - 0.004, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2, curveSegments: 6 });
     plinthGeo.rotateX(-Math.PI / 2);
     plinthGeo.translate(0, -PLINTH_H + 0.002, 0);
-    this.plinth = new Mesh(plinthGeo, [
-      new MeshStandardMaterial({ color: '#b9b2a6', roughness: 0.9 }),
-      new MeshStandardMaterial({ color: '#4b3427', roughness: 0.55 }),
-    ]);
-    this.plinth.receiveShadow = true;
-    this.plinth.castShadow = false;
+    // card top (reads the baked ground light) and oiled walnut sides (a soft sheen from the environment)
+    const plinthTop = new MeshStandardMaterial({ color: '#bdb6aa', roughness: 0.88 });
+    patchGroundMaterial(plinthTop, this.uniforms, 1 / CITY_SIZE, 'plinth');
+    this.plinth = new Mesh(plinthGeo, [plinthTop, new MeshStandardMaterial({ color: '#4b3427', roughness: 0.42 })]);
     this.plinth.name = 'city-plinth';
     this.root.add(this.plinth);
 
-    // Soft contact shadow on the real table (alpha in a black texture: darkens passthrough).
+    // Soft contact shadow on the real table: a black plane whose alpha (a KTX2 mask, setMasks) darkens passthrough.
     this.contact = new Mesh(
       new PlaneGeometry(half * 2 + 0.12, half * 2 + 0.12),
-      new MeshBasicMaterial({ map: contactTexture(), color: 0x000000, transparent: true, depthWrite: false, opacity: 0.75 }),
+      new MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, opacity: 0.8 }),
     );
+    this.contact.visible = false;
     this.contact.rotation.x = -Math.PI / 2;
     this.contact.position.y = -PLINTH_H + 0.0008;
     this.contact.renderOrder = -1;
@@ -164,21 +171,27 @@ export class CityView {
     const box = new BoxGeometry(1, 1, 1);
     box.translate(0, 0.5, 0);
 
-    this.districtMesh = new InstancedMesh(box, new MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }), 8);
+    const districtMat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.92 });
+    patchGroundMaterial(districtMat, this.uniforms, 1, 'district');
+    this.districtMesh = new InstancedMesh(box, districtMat, 8);
     this.districtMesh.instanceColor = new InstancedBufferAttribute(new Float32Array(8 * 3).fill(1), 3);
     this.districtMesh.count = 0;
-    this.districtMesh.receiveShadow = true;
     this.districtMesh.name = 'city-districts';
+    // an InstancedMesh's bounds are computed lazily, once, while count is still 0: never cull it
+    this.districtMesh.frustumCulled = false;
     this.units.add(this.districtMesh);
 
-    this.roofBits = new InstancedMesh(box, new MeshStandardMaterial({ color: '#d9d4cb', roughness: 0.8 }), 200);
+    // Small props carry their own baked AO as vertex colours (darker toward where they meet a surface).
+    this.roofBits = new InstancedMesh(withHeightAO(box.clone(), 0, 1, 0.5), new MeshStandardMaterial({ color: '#d9d4cb', roughness: 0.75, vertexColors: true }), 200);
     this.roofBits.count = 0;
-    this.roofBits.castShadow = true;
     this.roofBits.frustumCulled = false;
     this.units.add(this.roofBits);
-    this.trees = new InstancedMesh(new IcosahedronGeometry(1, 1).translate(0, 1, 0), new MeshStandardMaterial({ color: '#9fb88e', roughness: 0.95, flatShading: true }), 260);
+    this.trees = new InstancedMesh(
+      withHeightAO(new IcosahedronGeometry(1, 1).translate(0, 1, 0), 0, 2, 0.42),
+      new MeshStandardMaterial({ color: '#9fb88e', roughness: 0.95, flatShading: true, vertexColors: true }),
+      260,
+    );
     this.trees.count = 0;
-    this.trees.castShadow = true;
     this.trees.frustumCulled = false;
     this.units.add(this.trees);
 
@@ -186,15 +199,17 @@ export class CityView {
     this.aFail = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS).fill(-1), 1);
     this.aInfo.setUsage(DynamicDrawUsage);
     this.aRoof = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS * 3).fill(0.9), 3);
+    this.aMat = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS).fill(0.6), 1);
+    this.aTile = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS).fill(-1), 1);
     const bGeo = box.clone();
     bGeo.setAttribute('aRoof', this.aRoof);
+    bGeo.setAttribute('aMat', this.aMat);
+    bGeo.setAttribute('aTile', this.aTile);
     bGeo.setAttribute('aInfo', this.aInfo);
     bGeo.setAttribute('aFail', this.aFail);
     this.buildingMesh = new InstancedMesh(bGeo, material, MAX_BUILDINGS);
     this.buildingMesh.instanceColor = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS * 3).fill(1), 3);
     this.buildingMesh.count = 0;
-    this.buildingMesh.castShadow = true;
-    this.buildingMesh.receiveShadow = true;
     this.buildingMesh.name = 'city-buildings';
     this.buildingMesh.frustumCulled = false;
     this.units.add(this.buildingMesh);
@@ -216,20 +231,27 @@ export class CityView {
     this.fInfo.setUsage(DynamicDrawUsage);
     this.fFail.setUsage(DynamicDrawUsage);
     this.fRoof = new InstancedBufferAttribute(new Float32Array(MAX_FLOORS * 3).fill(0.9), 3);
+    this.fMat = new InstancedBufferAttribute(new Float32Array(MAX_FLOORS).fill(0.6), 1);
     const fGeo = box.clone();
     fGeo.setAttribute('aRoof', this.fRoof);
+    fGeo.setAttribute('aMat', this.fMat);
+    // the floors are not in the bake (they move): tile -1
+    fGeo.setAttribute('aTile', new InstancedBufferAttribute(new Float32Array(MAX_FLOORS).fill(-1), 1));
     fGeo.setAttribute('aInfo', this.fInfo);
     fGeo.setAttribute('aFail', this.fFail);
     this.floorMesh = new InstancedMesh(fGeo, material, MAX_FLOORS);
     this.floorMesh.count = 0;
-    this.floorMesh.castShadow = true;
     this.floorMesh.frustumCulled = false;
     this.floorMesh.name = 'city-floors';
     this.detail.add(this.floorMesh);
-    this.roof = new Mesh(box, new MeshStandardMaterial({ color: '#cfc8bc', roughness: 0.7 }));
-    this.roof.castShadow = true;
+    this.roof = new Mesh(box, new MeshStandardMaterial({ color: '#cfc8bc', roughness: 0.5 }));
     this.roof.name = 'city-roof';
     this.detail.add(this.roof);
+    // a soft blob shadow where the opened building stands on the desk
+    this.stackShadow = new Mesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, opacity: 0.7 }));
+    this.stackShadow.renderOrder = -1;
+    this.stackShadow.visible = false;
+    this.detail.add(this.stackShadow);
     this.detail.visible = false;
     this.units.add(this.detail);
 
@@ -279,6 +301,8 @@ export class CityView {
       this.buildingMesh.setColorAt(i, this.c);
       this.c.copy(tint).lerp(BUILDING_BASE, 0.15);
       this.aRoof.setXYZ(i, this.c.r, this.c.g, this.c.b);
+      this.aMat.setX(i, DISTRICT_ROOF_ROUGH[(data.districts[di]?.color ?? 0) % DISTRICT_ROOF_ROUGH.length]);
+      this.aTile.setX(i, i < MAX_LIT_BUILDINGS ? i : -1);
       const rowsVisual = Math.max(1, Math.min(b.functions.length, Math.floor((b.h * CITY_SIZE) / 0.0075)));
       const failFloor = b.functions.findIndex((f) => f.failing);
       this.aInfo.setXYZW(i, Math.max(1, rowsVisual), 0, 0, (i * 0.618) % 1);
@@ -293,6 +317,9 @@ export class CityView {
     this.aInfo.needsUpdate = true;
     this.aFail.needsUpdate = true;
     this.aRoof.needsUpdate = true;
+    this.aMat.needsUpdate = true;
+    this.aTile.needsUpdate = true;
+    this.setLight(null); // until this city's bake loads
     this.openIndex = -1;
     this.open = 0;
     this.detail.visible = false;
@@ -301,45 +328,36 @@ export class CityView {
     this.writeBuildings();
   }
 
-  /** Deterministic rooftop plant on bigger buildings, and trees in the open parts of each district. */
+  /** Deterministic rooftop plant on bigger buildings, and trees in the open parts of each district (shared with the light bake). */
   private buildDetails(data: CityData, n: number): void {
-    const bits: number[] = [];
-    const of: number[] = [];
-    let seed = 7;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < n && of.length < 200; i++) {
-      const b = data.buildings[i];
-      if (b.w < 0.06 || b.d < 0.06) continue;
-      const count = 1 + Math.floor(rnd() * Math.min(3, (b.w * b.d) / 0.004));
-      for (let k = 0; k < count && of.length < 200; k++) {
-        const sw = 0.012 + rnd() * 0.02, sd = 0.012 + rnd() * 0.02, sh = 0.008 + rnd() * 0.014;
-        const ox = (rnd() - 0.5) * (b.w - sw - 0.012), oz = (rnd() - 0.5) * (b.d - sd - 0.012);
-        bits.push(ox, oz, sw, sd, sh);
-        of.push(i);
-      }
-    }
-    this.roofBitOf = Int16Array.from(of);
-    this.roofBitBox = Float32Array.from(bits);
-    this.roofBits.count = of.length;
-    // trees on a jittered grid inside districts, clear of buildings
-    const pts: number[] = [];
-    const step = 0.034;
-    for (const d of data.districts) {
-      for (let x = d.x - d.w / 2 + 0.014; x < d.x + d.w / 2 - 0.012; x += step) {
-        for (let z = d.z - d.d / 2 + 0.014; z < d.z + d.d / 2 - 0.012; z += step) {
-          const px = x + (rnd() - 0.5) * 0.012, pz = z + (rnd() - 0.5) * 0.012;
-          let clear = true;
-          for (let i = 0; i < n && clear; i++) {
-            const b = data.buildings[i];
-            if (Math.abs(px - b.x) < b.w / 2 + 0.013 && Math.abs(pz - b.z) < b.d / 2 + 0.013) clear = false;
-          }
-          if (clear && pts.length / 3 < 260) pts.push(px, pz, 0.006 + rnd() * 0.005);
-        }
-      }
-    }
-    this.treeAt = Float32Array.from(pts);
-    this.trees.count = pts.length / 3;
+    const det = cityDetails(data.buildings, data.districts, n);
+    this.roofBitOf = det.roofBitOf;
+    this.roofBitBox = det.roofBitBox;
+    this.roofBits.count = det.roofBitOf.length;
+    this.treeAt = det.treeAt;
+    this.trees.count = det.treeAt.length / 3;
   }
+
+  /** The city's baked light atlas (null: none, plain lighting). */
+  setLight(tex: Texture | null): void {
+    this.uniforms.uLight.value = tex;
+    this.uniforms.uLightOn.value = tex ? 1 : 0;
+  }
+
+  /** Shadow masks (KTX2): the plinth's contact shadow and the round blob. */
+  setMasks(contact: Texture, blob: Texture): void {
+    const c = this.contact.material as MeshBasicMaterial;
+    c.alphaMap = contact;
+    c.needsUpdate = true;
+    this.contact.visible = true;
+    const b = this.stackShadow.material as MeshBasicMaterial;
+    b.alphaMap = blob;
+    b.needsUpdate = true;
+    this.blob = blob;
+  }
+
+  /** The blob mask, for other props' contact shadows (plaques). */
+  blob: Texture | null = null;
 
   /** Start the rise animation (city grows out of the table). */
   startRise(): void {
@@ -446,6 +464,8 @@ export class CityView {
     let avg = 0;
     for (let i = 0; i < this.buildingMesh.count; i++) avg += this.rise[i];
     avg = this.buildingMesh.count ? Math.min(1, avg / this.buildingMesh.count) : 1;
+    // baked shadows and AO grow in with the city
+    this.uniforms.uRise.value = avg * avg;
     for (let k = 0; k < this.trees.count; k++) {
       const r = this.treeAt[k * 3 + 2] * Math.max(0.0001, avg);
       this.m.compose(this.p.set(this.treeAt[k * 3], 0.01, this.treeAt[k * 3 + 1]), this.q.identity(), this.s.set(r, r * 1.15, r));
@@ -477,12 +497,14 @@ export class CityView {
     this.c.copy(DISTRICT_TINTS[(di?.color ?? 0) % DISTRICT_TINTS.length]).lerp(BUILDING_BASE, 0.15);
     for (let f = 0; f < nf; f++) {
       this.fRoof.setXYZ(f, this.c.r, this.c.g, this.c.b);
+      this.fMat.setX(f, DISTRICT_ROOF_ROUGH[(di?.color ?? 0) % DISTRICT_ROOF_ROUGH.length]);
       this.fInfo.setXYZW(f, 1, 0, 0, (i * 0.618 + f * 0.13) % 1);
       this.fFail.setX(f, b.functions[f].failing ? 0 : -1);
     }
     this.fInfo.needsUpdate = true;
     this.fFail.needsUpdate = true;
     this.fRoof.needsUpdate = true;
+    this.fMat.needsUpdate = true;
     this.detail.visible = true;
     this.writeBuildings();
   }
@@ -539,6 +561,11 @@ export class CityView {
     this.roof.position.set(ox, this.stackTop + lift, oz);
     this.roof.scale.set(w * 1.04, roofT, d * 1.04);
     this.roof.rotation.x = -0.25 * p;
+    // the blob sits on the desk under the stack once it has slid out (it fades in as it lands)
+    this.stackShadow.visible = !!this.blob && p > 0.05;
+    this.stackShadow.position.set(ox, (-PLINTH_H / CITY_SIZE) * p + 0.002, oz);
+    this.stackShadow.scale.set(w * 1.9, 1, d * 1.9);
+    (this.stackShadow.material as MeshBasicMaterial).opacity = 0.75 * p * p;
     this.shadowDirty = true;
   }
 
@@ -679,23 +706,19 @@ function roundedRect(half: number, r: number): Shape {
   return s;
 }
 
-/** A soft rounded-square shadow, alpha only (drawn black). */
-function contactTexture(): CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const ctx = c.getContext('2d')!;
-  ctx.filter = 'blur(14px)';
-  ctx.fillStyle = 'rgba(255,255,255,1)';
-  ctx.fillRect(40, 40, 176, 176);
-  const t = new CanvasTexture(c);
-  // use the canvas as an alpha map via the red channel copy
-  const img = ctx.getImageData(0, 0, 256, 256);
-  for (let k = 0; k < img.data.length; k += 4) {
-    img.data[k + 3] = img.data[k];
-    img.data[k] = img.data[k + 1] = img.data[k + 2] = 0;
+/**
+ * Per-vertex ambient occlusion by height, baked into a colour attribute:
+ * `floor` at y = y0 rising to 1 at y = y1 (a prop is darkest where it meets
+ * the surface it stands on).
+ */
+function withHeightAO(geo: BufferGeometry, y0: number, y1: number, floor: number): BufferGeometry {
+  const pos = geo.getAttribute('position');
+  const col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const t = Math.min(1, Math.max(0, (pos.getY(i) - y0) / (y1 - y0)));
+    const v = floor + (1 - floor) * Math.sqrt(t);
+    col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = v;
   }
-  ctx.filter = 'none';
-  ctx.putImageData(img, 0, 0);
-  t.needsUpdate = true;
-  return t;
+  geo.setAttribute('color', new BufferAttribute(col, 3));
+  return geo;
 }

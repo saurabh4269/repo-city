@@ -87,5 +87,6 @@ export function validateCity (c) {
     run(f.run, 'fix.run')
   }
   str(c.guide?.intro, 200, 'guide.intro'); str(c.guide?.onFire, 200, 'guide.onFire'); str(c.guide?.done, 160, 'guide.done')
+  if (c.light !== undefined) need(typeof c.light === 'string' && /^[\w.-]+\.(ktx2|png)$/.test(c.light), 'light must be a file name (.ktx2 or .png) next to the city JSON')
   return errs
 }

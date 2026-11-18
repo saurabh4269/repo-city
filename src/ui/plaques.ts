@@ -1,4 +1,4 @@
-import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from '@iwsdk/core';
+import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3, type Texture } from '@iwsdk/core';
 import { CanvasCard, fitText, FONT_UI, roundRect, UI } from './canvas.js';
 
 /**
@@ -37,6 +37,19 @@ export class Plaques {
   private lastFire = new Map<string, number>();
   private lastAny = -1e9;
   onPress: (id: string) => void = () => {};
+  private shadows: Mesh[] = [];
+  private hasShadow = false;
+
+  /** Contact shadows under the plaques (the blob mask, loaded as KTX2). */
+  setShadow(blob: Texture): void {
+    this.hasShadow = true;
+    this.shadows.forEach((m, i) => {
+      const mat = m.material as MeshBasicMaterial;
+      mat.alphaMap = blob;
+      mat.needsUpdate = true;
+      m.visible = !!this.slots[i]?.spec;
+    });
+  }
 
   constructor() {
     this.group.name = 'plaques';
@@ -50,6 +63,13 @@ export class Plaques {
       base.position.z = -0.002;
       base.renderOrder = 9;
       holder.add(base, card.mesh);
+      // and a soft contact shadow on the desk under it (KTX2 blob mask, setShadow)
+      const shadow = new Mesh(new PlaneGeometry(PLAQUE_W * 1.45, PLAQUE_H * 2.4).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false }));
+      shadow.position.y = 0.0006;
+      shadow.renderOrder = -1;
+      shadow.visible = false;
+      this.shadows.push(shadow);
+      this.group.add(shadow);
       holder.visible = false;
       this.group.add(holder);
       this.slots.push({ card, holder, spec: null, depth: [1, 1], glow: 0, press: 0 });
@@ -65,8 +85,10 @@ export class Plaques {
       const spec = i < n ? specs[i] : null;
       s.spec = spec;
       s.holder.visible = !!spec;
+      this.shadows[i].visible = !!spec && this.hasShadow;
       if (!spec) return;
       s.holder.position.set(-total / 2 + PLAQUE_W / 2 + i * (PLAQUE_W + gap), Math.sin(TILT) * (PLAQUE_H / 2) + 0.004, 0);
+      this.shadows[i].position.x = s.holder.position.x;
       this.redraw(s);
     });
   }
