@@ -104,6 +104,8 @@ float h31(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fr
     vec3 warm = uWindow * lit * uGlow;
     vec3 burn = vec3(1.0, 0.35, 0.08) * (1.4 + flick);
     totalEmissiveRadiance += win * mix(warm, burn, max(isFail, fire * step(rows - 1.5, row)));
+    // soft contact darkening at the foot of every wall (cheap baked-AO look)
+    diffuseColor.rgb *= mix(0.62, 1.0, smoothstep(0.0, 0.014, vObjPos.y * heightM));
     // a building on fire is scorched near the top
     diffuseColor.rgb *= 1.0 - fire * 0.55 * smoothstep(0.45, 1.0, vObjPos.y);
   } else if (n.y > 0.5) {
@@ -111,7 +113,7 @@ float h31(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fr
     vec2 e = (0.5 - abs(vObjPos.xz)) * vScale.xz * uUnit;
     float rim = 1.0 - step(0.0016, min(e.x, e.y));
     diffuseColor.rgb *= mix(0.86, 1.0, rim);
-    diffuseColor.rgb *= 1.0 - fire * 0.6;
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.07, 0.06), fire * 0.9);
   }
   totalEmissiveRadiance += vec3(0.35, 0.65, 1.0) * hover * 0.35;
 }`,

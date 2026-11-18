@@ -218,11 +218,11 @@ export function drawCode(
   y: number,
   w: number,
   h: number,
-  opts: { firstLine: number; hi?: Map<number, string>; maxSize?: number },
+  opts: { firstLine: number; hi?: Map<number, string>; maxSize?: number; minRows?: number },
 ): void {
   const gutter = 0.1 * w;
   const maxCols = Math.max(20, ...lines.map((l) => l.length));
-  let size = Math.min(opts.maxSize ?? 46, h / (Math.max(lines.length, 6) * 1.32));
+  let size = Math.min(opts.maxSize ?? 46, h / (Math.max(lines.length, opts.minRows ?? 6) * 1.32));
   ctx.font = `500 ${size}px ${FONT_CODE}`;
   const cw = ctx.measureText('M').width;
   if (cw * maxCols > w - gutter) size *= (w - gutter) / (cw * maxCols);

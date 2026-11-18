@@ -34,7 +34,7 @@ const MAX_BUILDINGS = 96;
 export const MAX_FLOORS = 24;
 
 /** Muted model-railway tints, one per district. */
-const DISTRICT_TINTS = ['#a9c5a0', '#e3cfa3', '#a7b8cc', '#dba692', '#c0b4d8', '#9fcac4'].map((c) => new Color(c));
+const DISTRICT_TINTS = ['#8fb98a', '#e2c27f', '#8fa9cc', '#d98f74', '#ad9bd6', '#7fc0b8'].map((c) => new Color(c));
 const BUILDING_BASE = new Color('#f4efe7');
 
 const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
@@ -83,6 +83,9 @@ export class CityView {
   /** Roof lift beyond the open stack, 0..1 (the hand can pull it further). */
   roofExtra = 0;
   hoverIndex = -1;
+  /** Where the opened building stands, city units: beside the city on the desk (x side set by the director). */
+  inspectX = 0.66;
+  inspectZ = 0.12;
   hoverFloor = -1;
   selectedFloor = -1;
   /** Fire 0..1 per building (only the failing one burns). */
@@ -118,7 +121,7 @@ export class CityView {
     plinthGeo.rotateX(-Math.PI / 2);
     plinthGeo.translate(0, -PLINTH_H + 0.002, 0);
     this.plinth = new Mesh(plinthGeo, [
-      new MeshStandardMaterial({ color: '#d8d2c6', roughness: 0.9 }),
+      new MeshStandardMaterial({ color: '#b9b2a6', roughness: 0.9 }),
       new MeshStandardMaterial({ color: '#4b3427', roughness: 0.55 }),
     ]);
     this.plinth.receiveShadow = true;
@@ -223,7 +226,7 @@ export class CityView {
     const dIndex = new Map(data.districts.map((d, i) => [d.id, i]));
     this.districtMesh.count = Math.min(8, data.districts.length);
     data.districts.slice(0, 8).forEach((d, i) => {
-      this.m.compose(this.p.set(d.x, 0, d.z), this.q.identity(), this.s.set(d.w, 0.006, d.d));
+      this.m.compose(this.p.set(d.x, 0, d.z), this.q.identity(), this.s.set(d.w, 0.01, d.d));
       this.districtMesh.setMatrixAt(i, this.m);
       this.districtMesh.setColorAt(i, DISTRICT_TINTS[d.color % DISTRICT_TINTS.length]);
     });
@@ -235,7 +238,7 @@ export class CityView {
       const b = data.buildings[i];
       const di = dIndex.get(b.district) ?? 0;
       const tint = DISTRICT_TINTS[data.districts[di]?.color ?? 0];
-      this.c.copy(BUILDING_BASE).lerp(tint, 0.14);
+      this.c.copy(BUILDING_BASE).lerp(tint, 0.2);
       this.buildingMesh.setColorAt(i, this.c);
       const rowsVisual = Math.max(1, Math.min(b.functions.length, Math.floor((b.h * CITY_SIZE) / 0.0075)));
       const failFloor = b.functions.findIndex((f) => f.failing);
@@ -386,29 +389,29 @@ export class CityView {
     let total = 0;
     for (let f = 0; f < nf; f++) total += Math.max(1, b.functions[f].lines);
     const stackClosed = b.h;
-    const gap = 0.012 * p;
+    const gap = 0.034 * p;
     const minT = 0.022;
-    const stackOpen = Math.min(0.5, Math.max(b.h * 1.4, nf * (minT + 0.012)));
+    const stackOpen = Math.min(0.62, Math.max(b.h * 1.5, nf * (minT + 0.034)));
     const stack = stackClosed + (stackOpen - stackClosed) * p;
     const usable = Math.max(0.01, stack - gap * Math.max(0, nf - 1));
-    // floor thickness: proportional to lines, but never thinner than minT when open
-    let y = 0;
+    // The building slides out of the city onto the desk beside it (and down to the table top).
+    const ox = b.x + (this.inspectX - b.x) * p;
+    const oz = b.z + (this.inspectZ - b.z) * p;
+    let y = (-PLINTH_H / CITY_SIZE) * p;
     const thinFloor = minT * p;
-    let fixed = 0;
-    for (let f = 0; f < nf; f++) fixed += thinFloor;
-    const share = Math.max(0, usable - fixed);
+    const share = Math.max(0, usable - thinFloor * nf);
     for (let f = 0; f < nf; f++) {
       const t = thinFloor + (share * Math.max(1, b.functions[f].lines)) / total;
       const sel = f === this.selectedFloor ? 1 : 0;
       const hov = f === this.hoverFloor ? 1 : 0;
       // the selected floor slides out toward the viewer a little
       const slide = (sel * 0.05 + hov * 0.015) * p;
-      this.m.compose(this.p.set(b.x, y, b.z + slide), this.q.identity(), this.s.set(w, t, d));
+      this.m.compose(this.p.set(ox, y, oz + slide), this.q.identity(), this.s.set(w, t, d));
       this.floorMesh.setMatrixAt(f, this.m);
       const o = f * 6;
-      this.floorBoxes[o] = b.x;
+      this.floorBoxes[o] = ox;
       this.floorBoxes[o + 1] = y + t / 2;
-      this.floorBoxes[o + 2] = b.z + slide;
+      this.floorBoxes[o + 2] = oz + slide;
       this.floorBoxes[o + 3] = w / 2;
       this.floorBoxes[o + 4] = t / 2;
       this.floorBoxes[o + 5] = d / 2;
@@ -421,7 +424,7 @@ export class CityView {
     this.stackTop = y - gap;
     const roofT = 0.008;
     const lift = (0.05 + this.roofExtra * 0.1) * p;
-    this.roof.position.set(b.x, this.stackTop + lift, b.z);
+    this.roof.position.set(ox, this.stackTop + lift, oz);
     this.roof.scale.set(w * 1.04, roofT, d * 1.04);
     this.roof.rotation.x = -0.25 * p;
     this.shadowDirty = true;

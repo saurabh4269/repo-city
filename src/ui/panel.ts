@@ -3,7 +3,7 @@ import { CanvasCard, drawCode, fitText, FONT_CODE, FONT_UI, glass, roundRect, UI
 
 /** Main reading panel, standing behind the city: metres. */
 export const PANEL_W = 0.6;
-export const PANEL_H = 0.38;
+export const PANEL_H = 0.44;
 
 export type PanelMode =
   | { kind: 'placing' }
@@ -142,50 +142,28 @@ function drawWelcome(ctx: CanvasRenderingContext2D, a: Area, c: CityData): void 
 
 function drawBuilding(ctx: CanvasRenderingContext2D, a: Area, b: Building, floor: number, c: CityData | null): void {
   const district = c?.districts.find((d) => d.id === b.district);
+  const f = b.functions[floor < 0 ? b.functions.length - 1 : floor];
   let x = a.x;
   if (district) x += chip(ctx, district.name, x, a.y, 'rgba(255,255,255,0.12)', UI.text, 30) + 16;
-  fitText(ctx, b.path, x, a.y - 4, a.w - (x - a.x), 60, { size: 54, weight: 800 });
-  fitText(ctx, b.summary, a.x, a.y + 62, a.w, 66, { size: 36, color: UI.dim });
-  const y = a.y + 140;
-  const h = a.h - 140;
-  // Floor directory (top floor first, like a lobby board)
-  const lw = a.w * 0.34;
-  label(ctx, `${b.functions.length} floors · ${b.lines} lines`, a.x, y, UI.dim, 26);
-  const n = b.functions.length;
-  const rows = Math.min(n, 11);
-  const start = Math.max(0, Math.min(n - rows, (floor < 0 ? n - 1 : floor) - Math.floor(rows / 2)));
-  const rh = Math.min(52, (h - 44) / rows);
-  for (let k = 0; k < rows; k++) {
-    const fi = start + rows - 1 - k;
-    const f = b.functions[fi];
-    const yy = y + 42 + k * rh;
-    if (fi === floor) {
-      roundRect(ctx, a.x - 10, yy - 4, lw, rh - 2, 12);
-      ctx.fillStyle = f.failing ? 'rgba(255,106,61,0.28)' : 'rgba(140,200,255,0.22)';
-      ctx.fill();
-    }
-    ctx.font = `${fi === floor ? 700 : 500} ${Math.round(rh * 0.62)}px ${FONT_UI}`;
-    ctx.fillStyle = f.failing ? UI.fire : fi === floor ? UI.text : '#c9d1db';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    let name = `${fi + 1}  ${f.failing ? '● ' : ''}${f.name}`;
-    while (ctx.measureText(name).width > lw - 20 && name.length > 4) name = name.slice(0, -2) + '…';
-    ctx.fillText(name, a.x, yy + rh * 0.12);
-  }
-  // Code
-  const cx = a.x + lw + 24;
-  const cwid = a.w - lw - 24;
-  roundRect(ctx, cx, y, cwid, h, 20);
+  fitText(ctx, `${b.path} · floor ${b.functions.indexOf(f) + 1} of ${b.functions.length}`, x, a.y - 4, a.w - (x - a.x), 60, { size: 50, weight: 800 });
+  fitText(ctx, b.summary, a.x, a.y + 62, a.w, 50, { size: 34, color: UI.dim });
+  const y = a.y + 124;
+  const h = a.h - 124;
+  roundRect(ctx, a.x, y, a.w, h, 20);
   ctx.fillStyle = UI.codeBg;
   ctx.fill();
-  const f = b.functions[floor < 0 ? 0 : floor];
-  if (f) {
-    const lines = f.code.split('\n').slice(0, 16);
-    const first = f.codeStart ?? f.startLine;
-    const hi = new Map<number, string>();
-    if (f.failing && f.bugLine) hi.set(f.bugLine - first, 'rgba(255,106,61,0.30)');
-    drawCode(ctx, lines, cx + 22, y + 20, cwid - 44, h - 40, { firstLine: first, maxSize: 36, hi });
-  }
+  if (!f) return;
+  // At most 12 lines so the code stays big enough to read at arm's length + a bit.
+  const all = f.code.split('\n');
+  const first0 = f.codeStart ?? f.startLine;
+  let from = 0;
+  if (f.failing && f.bugLine) from = Math.max(0, Math.min(all.length - 12, f.bugLine - first0 - 5));
+  const lines = all.slice(from, from + 12);
+  if (all.length > from + 12) lines.push('…');
+  const first = first0 + from;
+  const hi = new Map<number, string>();
+  if (f.failing && f.bugLine) hi.set(f.bugLine - first, 'rgba(255,106,61,0.30)');
+  drawCode(ctx, lines, a.x + 22, y + 22, a.w - 44, h - 44, { firstLine: first, maxSize: 46, hi });
 }
 
 function drawFire(ctx: CanvasRenderingContext2D, a: Area, b: Building, f: Failure, fix?: Fix): void {
@@ -228,7 +206,7 @@ function drawFix(ctx: CanvasRenderingContext2D, a: Area, b: Building, fix: Fix):
     [0, 'rgba(255,106,61,0.25)'],
     [1, 'rgba(126,224,166,0.22)'],
   ]);
-  drawCode(ctx, [`- ${fix.before}`, `+ ${fix.after}`], a.x + 16, y + 30, a.w - 40, 150, { firstLine: fix.line, hi, maxSize: 46 });
+  drawCode(ctx, [`- ${fix.before}`, `+ ${fix.after}`], a.x + 16, y + 30, a.w - 40, 150, { firstLine: fix.line, hi, maxSize: 52, minRows: 2 });
   fitText(ctx, fix.explanation, a.x, y + 228, a.w, a.h - 228 - 80, { size: 42, lineHeight: 1.3 });
 }
 

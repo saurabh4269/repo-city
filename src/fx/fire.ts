@@ -1,5 +1,4 @@
 import {
-  AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
@@ -17,7 +16,7 @@ import {
  * scales emission; at 0 the remaining particles burn out. `burst()` throws a
  * steam puff when the fire goes out.
  */
-const FLAMES = 110;
+const FLAMES = 90;
 const SMOKE = 46;
 
 interface Pool {
@@ -70,7 +69,8 @@ uniform float uScale;
 void main() {
   vAlpha = aAlpha; vHeat = aHeat;
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = aSize * uScale / max(0.05, -mv.z);
+  // uScale = half the viewport height in pixels; projectionMatrix[1][1] = 1/tan(fovY/2)
+  gl_PointSize = aSize * uScale * projectionMatrix[1][1] / max(0.05, -mv.z);
   gl_Position = projectionMatrix * mv;
 }`;
 
@@ -95,21 +95,26 @@ export class Fire {
   constructor() {
     const tex = spriteTexture();
     this.flameMat = new ShaderMaterial({
-      uniforms: { uMap: { value: tex }, uScale: { value: 900 } },
+      uniforms: { uMap: { value: tex }, uScale: { value: 500 } },
       vertexShader: VERT,
       fragmentShader: `uniform sampler2D uMap; varying float vAlpha; varying float vHeat;
         void main(){
-          float a = texture2D(uMap, gl_PointCoord).a;
-          vec3 hot = vec3(1.0, 0.92, 0.65); vec3 mid = vec3(1.0, 0.5, 0.12); vec3 cool = vec3(0.75, 0.12, 0.03);
+          // teardrop: narrow at the top, round at the bottom
+          vec2 c = gl_PointCoord - vec2(0.5, 0.62);
+          c.x *= 1.0 + (0.62 - gl_PointCoord.y) * 1.6;
+          float a = smoothstep(0.5, 0.05, length(c * vec2(1.25, 0.9)));
+          vec3 hot = vec3(1.0, 0.78, 0.36); vec3 mid = vec3(1.0, 0.42, 0.08); vec3 cool = vec3(0.6, 0.08, 0.02);
           vec3 col = vHeat > 0.5 ? mix(mid, hot, (vHeat - 0.5) * 2.0) : mix(cool, mid, vHeat * 2.0);
-          gl_FragColor = vec4(col * 1.15, a * vAlpha);
+          // bright core, saturated edges: reads over a white roof and a dark room alike
+          col = mix(col, vec3(1.0, 0.95, 0.75), smoothstep(0.25, 0.0, length(c)) * vHeat);
+          gl_FragColor = vec4(col, min(1.0, a * vAlpha * 1.4));
         }`,
       transparent: true,
       depthWrite: false,
-      blending: AdditiveBlending,
+      blending: NormalBlending,
     });
     this.smokeMat = new ShaderMaterial({
-      uniforms: { uMap: { value: tex }, uScale: { value: 900 } },
+      uniforms: { uMap: { value: tex }, uScale: { value: 500 } },
       vertexShader: VERT,
       fragmentShader: `uniform sampler2D uMap; varying float vAlpha; varying float vHeat;
         void main(){
@@ -131,9 +136,9 @@ export class Fire {
     this.group.add(s, f);
   }
 
-  /** Projection scale for point sizes: pixels per metre at 1 m (call when the viewport changes). */
-  setViewport(heightPx: number, fovYDeg: number): void {
-    const k = heightPx / (2 * Math.tan((fovYDeg * Math.PI) / 360));
+  /** Half the render viewport height in pixels (per eye in XR); call each frame. */
+  setViewport(heightPx: number): void {
+    const k = heightPx * 0.5;
     this.flameMat.uniforms.uScale.value = k;
     this.smokeMat.uniforms.uScale.value = k;
   }
@@ -162,7 +167,7 @@ export class Fire {
         F.pos[i * 3 + 1] = this.origin.y + Math.random() * 0.004;
         F.pos[i * 3 + 2] = this.origin.z + (Math.random() - 0.5) * 2 * r;
         F.vel[i * 3] = (Math.random() - 0.5) * (ember ? 0.03 : 0.01);
-        F.vel[i * 3 + 1] = ember ? 0.07 + Math.random() * 0.06 : 0.06 + Math.random() * 0.05;
+        F.vel[i * 3 + 1] = ember ? 0.09 + Math.random() * 0.07 : 0.11 + Math.random() * 0.08;
         F.vel[i * 3 + 2] = (Math.random() - 0.5) * (ember ? 0.03 : 0.01);
         this.ember[i] = ember ? 1 : 0;
         F.heat[i] = ember ? 0.55 : 1;
@@ -176,17 +181,17 @@ export class Fire {
         const cz = this.origin.z - F.pos[i * 3 + 2];
         F.vel[i * 3] += cx * dt * (ember ? 0.5 : 6) + (Math.random() - 0.5) * dt * 0.06;
         F.vel[i * 3 + 2] += cz * dt * (ember ? 0.5 : 6) + (Math.random() - 0.5) * dt * 0.06;
-        F.vel[i * 3 + 1] += dt * (ember ? 0.01 : 0.05);
+        F.vel[i * 3 + 1] += dt * (ember ? 0.01 : 0.12);
         F.pos[i * 3] += F.vel[i * 3] * dt;
         F.pos[i * 3 + 1] += F.vel[i * 3 + 1] * dt;
         F.pos[i * 3 + 2] += F.vel[i * 3 + 2] * dt;
         if (ember) {
-          F.size[i] = 0.0022;
-          F.alpha[i] = (1 - u) * (0.6 + 0.4 * Math.random());
+          F.size[i] = 0.004;
+          F.alpha[i] = Math.max(0, (1 - u) * (0.6 + 0.4 * Math.random()));
           F.heat[i] = 0.55;
         } else {
-          F.size[i] = (0.012 + this.spread * 0.5) * (1 - u * 0.75) * (u < 0.15 ? u / 0.15 : 1);
-          F.alpha[i] = 0.42 * (1 - u) * (1 - u);
+          F.size[i] = (0.026 + this.spread * 0.9) * (1 - u * 0.7) * (u < 0.12 ? u / 0.12 : 1);
+          F.alpha[i] = Math.max(0, 0.75 * (1 - u) * (1 - u));
           F.heat[i] = 1 - u;
         }
       } else {
@@ -215,8 +220,8 @@ export class Fire {
         S.pos[i * 3] += S.vel[i * 3] * dt;
         S.pos[i * 3 + 1] += S.vel[i * 3 + 1] * dt;
         S.pos[i * 3 + 2] += S.vel[i * 3 + 2] * dt;
-        S.size[i] = 0.02 + u * 0.06;
-        S.alpha[i] = (S.heat[i] > 0.5 ? 0.35 : 0.22) * Math.sin(Math.PI * u);
+        S.size[i] = 0.014 + u * 0.035;
+        S.alpha[i] = (S.heat[i] > 0.5 ? 0.3 : 0.14) * Math.sin(Math.PI * u);
       } else {
         S.alpha[i] = 0;
         S.size[i] = 0;

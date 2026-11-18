@@ -55,7 +55,7 @@ function log(event: string): void {
 }
 
 /** City local (metres from the plinth top centre) → toward the user is +Z. */
-const PANEL_POS = new Vector3(0, 0.235, -0.3);
+const PANEL_POS = new Vector3(0, 0.27, -0.3);
 const PANEL_TILT = -0.16;
 const PLAQUE_Z = CITY_SIZE / 2 + 0.06;
 
@@ -79,6 +79,7 @@ export class RepoCityDirector extends createSystem({
   private panel!: MainPanel;
   private plaques!: Plaques;
   private hoverCard!: CanvasCard;
+  private floorCard!: CanvasCard;
   private guideOrb!: Group;
   private hintCard!: CanvasCard;
   private preview!: Group;
@@ -154,7 +155,6 @@ export class RepoCityDirector extends createSystem({
 
     this.fire = new Fire();
     this.city.root.add(this.fire.group);
-    this.fire.setViewport(1800, 90);
     this.fireLight = new PointLight('#ff8a3a', 0, 0.35, 2);
     this.city.root.add(this.fireLight);
 
@@ -185,6 +185,9 @@ export class RepoCityDirector extends createSystem({
     // Main panel standing behind the city, tilted back a little.
     this.panel = new MainPanel();
     this.panel.card.mesh.name = 'main-panel';
+    // drawn before the fire and the labels: the panel stands behind them, and transparent
+    // objects without depth writes paint over whatever was drawn before them.
+    this.panel.card.mesh.renderOrder = 1;
     this.panel.card.mesh.position.copy(PANEL_POS);
     this.panel.card.mesh.rotation.x = PANEL_TILT;
     this.anchor.add(this.panel.card.mesh);
@@ -204,6 +207,10 @@ export class RepoCityDirector extends createSystem({
     this.hoverCard.material.depthTest = false;
     this.hoverCard.opacity = 0;
     this.anchor.add(this.hoverCard.mesh);
+    this.floorCard = new CanvasCard(0.13, 0.042, 2400);
+    this.floorCard.mesh.renderOrder = 12;
+    this.floorCard.opacity = 0;
+    this.anchor.add(this.floorCard.mesh);
 
     // Placement: preview frame + a lazy-follow hint card.
     this.preview = makePreview();
@@ -745,6 +752,7 @@ export class RepoCityDirector extends createSystem({
     }
     this.city.update(dt, time);
     this.placeFire();
+    this.fire.setViewport(this.viewportHeight());
     this.fire.update(dt);
     // the fire light flickers
     if (this.fire.level > 0) {
@@ -752,10 +760,18 @@ export class RepoCityDirector extends createSystem({
     } else this.fireLight.intensity = Math.max(0, this.fireLight.intensity - dt * 0.2);
     if (this.immersive) sfx.setFire(this.phase === 'placing' ? 0 : this.fire.level * (this.city.openIndex === this.fireIndex ? 0.6 : 0.35));
     this.animateGuide(time);
+    this.updateFloorCard();
     if (this.city.shadowDirty) {
       this.city.shadowDirty = false;
       this.sun.shadow.needsUpdate = true;
     }
+  }
+
+  private viewportHeight(): number {
+    const layer = this.renderer.xr.isPresenting ? (this.renderer.xr.getSession()?.renderState.baseLayer as XRWebGLLayer | undefined) : undefined;
+    if (layer?.framebufferHeight) return layer.framebufferHeight;
+    if (this.renderer.xr.isPresenting) return 1900; // projection layers: Quest 3 eye buffer height
+    return this.renderer.domElement.height;
   }
 
   private animateGuide(time: number): void {
@@ -896,6 +912,8 @@ export class RepoCityDirector extends createSystem({
     this.setHover(hov === open && this.city.open > 0.3 ? -1 : hov);
     if (hand.pinchStarted && hp >= 0 && hp !== open) {
       if (open >= 0) this.city.setOpen(-1);
+      // the building comes out on the side of the hand that took it
+      this.city.inspectX = hand.side === 'left' ? -0.66 : 0.66;
       this.city.setOpen(hp);
       this.city.setRoutes(hp);
       this.beginDrag(hand, 'lift', now);
@@ -959,9 +977,34 @@ export class RepoCityDirector extends createSystem({
     this.v.y += 0.045;
     this.hoverCard.mesh.position.copy(this.v);
     this.readHead();
-    this.v2.copy(this.head);
-    this.anchor.worldToLocal(this.v2);
-    this.hoverCard.mesh.lookAt(this.anchor.localToWorld(this.v2));
+    this.hoverCard.mesh.lookAt(this.head);
+  }
+
+  /** Name of the floor under the fingertip (or the selected one), beside the stack, facing the user. */
+  private updateFloorCard(): void {
+    const b = this.city.openIndex >= 0 ? this.data?.buildings[this.city.openIndex] : undefined;
+    const f = this.city.hoverFloor >= 0 ? this.city.hoverFloor : this.city.selectedFloor;
+    if (!b || f < 0 || f >= this.city.floorCount || this.city.open < 0.9) {
+      this.floorCard.opacity = Math.max(0, this.floorCard.opacity - 0.1);
+      return;
+    }
+    const fn = b.functions[f];
+    const burning = !!fn.failing && this.city.fire[this.city.openIndex] > 0;
+    this.floorCard.draw(`${b.id}${f}${burning}`, (ctx, W, H) => {
+      glass(ctx, W, H, burning ? UI.fire : UI.blue, 30);
+      fitText(ctx, fn.name, 44, 14, W - 70, H * 0.52, { size: 62, weight: 800, font: `'JetBrains Mono', Menlo, monospace` });
+      fitText(ctx, `floor ${f + 1} · ${fn.lines} lines${burning ? ' · failing' : ''}`, 44, H * 0.58, W - 70, H * 0.34, { size: 38, color: burning ? UI.fire : UI.dim });
+    });
+    this.floorCard.opacity = Math.min(1, this.floorCard.opacity + 0.15);
+    const o = f * 6;
+    const bx = this.city.floorBoxes;
+    const side = this.city.inspectX > 0 ? -1 : 1;
+    this.v.set(bx[o] + side * (bx[o + 3] + 0.17), bx[o + 1], bx[o + 2] + bx[o + 5]);
+    this.city.units.localToWorld(this.v);
+    this.anchor.worldToLocal(this.v);
+    this.floorCard.mesh.position.copy(this.v);
+    this.readHead();
+    this.floorCard.mesh.lookAt(this.head);
   }
 
   private drawHoverCard(b: Building, burning: boolean): void {
