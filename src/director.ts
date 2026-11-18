@@ -299,6 +299,9 @@ export class RepoCityDirector extends createSystem({
     this.setAnchorPose(this.v.set(0, 0.74, -0.12), 0);
     this.virtualDesk.visible = true;
     this.anchor.visible = true;
+    // a seated view over the desk for the browser page
+    this.camera.position.set(0, 1.27, 0.62);
+    this.camera.lookAt(0, 0.86, -0.2);
     this.guide(this.data ? `This is ${this.data.name} as a city. Put on a Quest and press Enter XR to build it on your own desk.` : 'Loading the city…');
     this.panelMode = { kind: 'welcome' };
     this.plaques.set([]);
@@ -444,6 +447,46 @@ export class RepoCityDirector extends createSystem({
     this.m.decompose(root.position, root.quaternion, root.scale);
     root.updateWorldMatrix(true, true);
     this.city.shadowDirty = true;
+  }
+
+  /**
+   * Named moments for filming and headset QA: ?state=open|fire|fix|done|explore
+   * (and ?city=<id>). In dev the emulator drops URL queries, so it is also read
+   * once from sessionStorage['repo-city-preset'] (tools/goto.mjs).
+   */
+  private preset: string | null = (() => {
+    let q = location.search;
+    if (import.meta.env.DEV) {
+      try {
+        q = q || sessionStorage.getItem('repo-city-preset') || '';
+        sessionStorage.removeItem('repo-city-preset');
+      } catch {
+        /* storage blocked */
+      }
+    }
+    const v = new URLSearchParams(q).get('state');
+    return v && ['open', 'fire', 'fix', 'done', 'explore'].includes(v) ? v : null;
+  })();
+
+  private applyPreset(): void {
+    const p = this.preset;
+    if (!p || this.fireIndex < 0) return;
+    this.preset = null; // once
+    log(`preset ${p}`);
+    if (p === 'explore') {
+      this.step = 'free';
+      this.applyStep();
+      return;
+    }
+    this.openBuilding(this.fireIndex);
+    this.city.open = 1;
+    if (p === 'open') return;
+    const f = this.data!.buildings[this.fireIndex].functions.findIndex((x) => x.failing);
+    this.selectFloor(f);
+    if (p === 'fire') return;
+    this.showFix();
+    if (p === 'fix') return;
+    this.runTests();
   }
 
   private startRise(): void {
@@ -811,6 +854,7 @@ export class RepoCityDirector extends createSystem({
         if (!this.city.rising && this.phaseT > 4.5) {
           this.setPhase('city');
           this.applyStep();
+          this.applyPreset();
           this.logTargets();
         }
         break;
