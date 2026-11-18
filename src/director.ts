@@ -1085,7 +1085,16 @@ export class RepoCityDirector extends createSystem({
 
   // ───────────────────────── per frame
 
+  private audioRetryAt = 0;
+
   update(delta: number, time: number): void {
+    // Quest Browser's own Enter XR (offerSession) gives the page no user gesture, so the
+    // AudioContext can stay suspended (silent). Retry resume once a second while in XR;
+    // XR select events count as activation, so the first pinch unlocks it.
+    if (this.immersive && performance.now() > this.audioRetryAt) {
+      this.audioRetryAt = performance.now() + 1000;
+      sfx.unlock();
+    }
     const dt = Math.min(delta, 0.05);
     this.clock = time;
     this.phaseT += dt;
