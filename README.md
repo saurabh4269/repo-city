@@ -112,7 +112,7 @@ flowchart LR
     H --> U["Panel, plaques and lantern guide"]
     U --> S["Street level"]
   end
-  J -->|"fetched at load, no other network calls"| C
+  offline ==>|"city JSON fetched at load<br/>(no other network calls)"| runtime
 ```
 
 Everything runs on the headset. There is no LLM and no network call at runtime: the guide's lines are prepared from the repo at build time and spoken with the browser's speech synthesis. Sounds are synthesised with Web Audio.
