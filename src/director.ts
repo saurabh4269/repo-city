@@ -22,6 +22,7 @@ import { sfx } from './audio.js';
 import { CITY_SIZE, CityView, PLINTH_H } from './city/city-view.js';
 import type { Building, CityData, Failure } from './city/types.js';
 import { Fire } from './fx/fire.js';
+import { Sparks } from './fx/sparks.js';
 import { Hands, type HandState } from './input/hands.js';
 import { gatherPlanes } from './mr/plane-source.js';
 import { describeReport, emptyReport, findTableSpot, type PlaneInput, resetReport } from './mr/room-placement.js';
@@ -74,6 +75,7 @@ export class RepoCityDirector extends createSystem({
   private manip!: Group;
   private city!: CityView;
   private fire!: Fire;
+  private sparks = new Sparks();
   private fireLight!: PointLight;
   private sun!: DirectionalLight;
   private panel!: MainPanel;
@@ -155,6 +157,7 @@ export class RepoCityDirector extends createSystem({
 
     this.fire = new Fire();
     this.city.root.add(this.fire.group);
+    this.city.root.add(this.sparks.points);
     this.fireLight = new PointLight('#ff8a3a', 0, 0.35, 2);
     this.city.root.add(this.fireLight);
 
@@ -576,6 +579,12 @@ export class RepoCityDirector extends createSystem({
       case 'close':
         this.closeBuilding();
         break;
+      case 'district': {
+        const b = this.data?.buildings[this.city.openIndex];
+        const d = b ? this.data!.districts.find((x) => x.id === b.district) : undefined;
+        if (d) this.guide(`The ${d.name} district: ${d.summary}`);
+        break;
+      }
       case 'explore':
         this.step = 'free';
         this.closeBuilding();
@@ -593,6 +602,12 @@ export class RepoCityDirector extends createSystem({
 
   // ───────────────────────── buildings
 
+  /** "Ask the guide" about the district of an open building. */
+  private districtPlaque(b: Building): PlaqueSpec {
+    const d = this.data?.districts.find((x) => x.id === b.district);
+    return { id: 'district', text: `What is ${d?.name ?? 'this district'}?`, accent: UI.amber };
+  }
+
   private openBuilding(i: number): void {
     if (i < 0) return;
     if (this.city.openIndex !== i) {
@@ -609,10 +624,10 @@ export class RepoCityDirector extends createSystem({
     if (i === this.fireIndex && this.step === 'find-fire') this.step = 'touch-floor';
     if (this.step === 'free' || this.journeyDone) {
       this.guide(`${b.name}: ${b.summary}`, false);
-      this.setPlaques([{ id: 'close', text: 'Close the building' }, nextCityPlaque(this)]);
+      this.setPlaques([{ id: 'close', text: 'Close the building' }, this.districtPlaque(b), nextCityPlaque(this)]);
     } else if (i !== this.fireIndex) {
       this.guide(`${b.name}: ${b.summary} The fire is in ${this.data!.buildings[this.fireIndex]?.name}.`, false);
-      this.setPlaques([{ id: 'goto-fire', text: 'Open the burning building', accent: UI.fire }, { id: 'close', text: 'Close the building' }]);
+      this.setPlaques([{ id: 'goto-fire', text: 'Open the burning building', accent: UI.fire }, this.districtPlaque(b), { id: 'close', text: 'Close the building' }]);
     } else {
       this.applyStep();
     }
@@ -687,6 +702,9 @@ export class RepoCityDirector extends createSystem({
     while (T.next < target) {
       const i = T.order[T.next++];
       this.city.pulseBuilding(i);
+      this.city.roofWorld(i, this.v);
+      this.city.root.worldToLocal(this.v);
+      this.sparks.burst(this.v, 4, '#6dffb0', 0.12);
       sfx.testTick(T.next);
       if (i === this.fireIndex && !T.extinguished) {
         T.extinguished = true;
@@ -714,6 +732,17 @@ export class RepoCityDirector extends createSystem({
   }
 
   private finishJourney(): void {
+    // a gold burst over the city, in three waves
+    for (let w = 0; w < 3; w++) {
+      window.setTimeout(() => {
+        for (let k = 0; k < 6; k++) {
+          const b = this.data?.buildings[Math.floor(Math.random() * (this.data?.buildings.length ?? 1))];
+          if (!b) continue;
+          this.v.set(b.x * CITY_SIZE, b.h * CITY_SIZE + 0.01, b.z * CITY_SIZE);
+          this.sparks.burst(this.v, 14, w === 1 ? '#7ee0a6' : '#ffd27a', 0.42);
+        }
+      }, w * 280);
+    }
     this.journeyDone = true;
     this.step = 'finished';
     this.setPhase('done');
@@ -809,7 +838,10 @@ export class RepoCityDirector extends createSystem({
     }
     this.city.update(dt, time);
     this.placeFire();
-    this.fire.setViewport(this.viewportHeight());
+    const vh = this.viewportHeight();
+    this.fire.setViewport(vh);
+    this.sparks.setViewport(vh);
+    this.sparks.update(dt);
     this.fire.update(dt);
     // the fire light flickers
     if (this.fire.level > 0) {

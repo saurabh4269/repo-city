@@ -17,6 +17,7 @@ import {
   MeshStandardMaterial,
   Object3D,
   PlaneGeometry,
+  IcosahedronGeometry,
   Quaternion,
   RingGeometry,
   Shape,
@@ -35,7 +36,8 @@ const MAX_BUILDINGS = 96;
 export const MAX_FLOORS = 24;
 
 /** Muted model-railway tints, one per district. */
-const DISTRICT_TINTS = ['#8fb98a', '#e2c27f', '#8fa9cc', '#d98f74', '#ad9bd6', '#7fc0b8'].map((c) => new Color(c));
+export const DISTRICT_TINTS_HEX = ['#8fb98a', '#e2c27f', '#8fa9cc', '#d98f74', '#ad9bd6', '#7fc0b8'];
+const DISTRICT_TINTS = DISTRICT_TINTS_HEX.map((c) => new Color(c));
 const BUILDING_BASE = new Color('#f4efe7');
 
 const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
@@ -59,12 +61,20 @@ export class CityView {
   readonly uniforms: BuildingUniforms;
 
   private plinth: Mesh;
+  /** Rooftop plant (vents, water tanks) and model trees: one instanced draw each. */
+  private roofBits: InstancedMesh;
+  private roofBitOf: Int16Array = new Int16Array(0);
+  private roofBitBox: Float32Array = new Float32Array(0);
+  private trees: InstancedMesh;
+  private treeAt: Float32Array = new Float32Array(0);
   private dust: Mesh;
   private contact: Mesh;
   private districtMesh: InstancedMesh;
   private buildingMesh: InstancedMesh;
   private aInfo: InstancedBufferAttribute;
   private aFail: InstancedBufferAttribute;
+  private aRoof: InstancedBufferAttribute;
+  private fRoof: InstancedBufferAttribute;
 
   /** Detail view: floors of the open building. */
   readonly detail = new Group();
@@ -161,10 +171,23 @@ export class CityView {
     this.districtMesh.name = 'city-districts';
     this.units.add(this.districtMesh);
 
+    this.roofBits = new InstancedMesh(box, new MeshStandardMaterial({ color: '#d9d4cb', roughness: 0.8 }), 200);
+    this.roofBits.count = 0;
+    this.roofBits.castShadow = true;
+    this.roofBits.frustumCulled = false;
+    this.units.add(this.roofBits);
+    this.trees = new InstancedMesh(new IcosahedronGeometry(1, 1).translate(0, 1, 0), new MeshStandardMaterial({ color: '#9fb88e', roughness: 0.95, flatShading: true }), 260);
+    this.trees.count = 0;
+    this.trees.castShadow = true;
+    this.trees.frustumCulled = false;
+    this.units.add(this.trees);
+
     this.aInfo = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS * 4), 4);
     this.aFail = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS).fill(-1), 1);
     this.aInfo.setUsage(DynamicDrawUsage);
+    this.aRoof = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS * 3).fill(0.9), 3);
     const bGeo = box.clone();
+    bGeo.setAttribute('aRoof', this.aRoof);
     bGeo.setAttribute('aInfo', this.aInfo);
     bGeo.setAttribute('aFail', this.aFail);
     this.buildingMesh = new InstancedMesh(bGeo, material, MAX_BUILDINGS);
@@ -192,7 +215,9 @@ export class CityView {
     this.fFail = new InstancedBufferAttribute(new Float32Array(MAX_FLOORS).fill(-1), 1);
     this.fInfo.setUsage(DynamicDrawUsage);
     this.fFail.setUsage(DynamicDrawUsage);
+    this.fRoof = new InstancedBufferAttribute(new Float32Array(MAX_FLOORS * 3).fill(0.9), 3);
     const fGeo = box.clone();
+    fGeo.setAttribute('aRoof', this.fRoof);
     fGeo.setAttribute('aInfo', this.fInfo);
     fGeo.setAttribute('aFail', this.fFail);
     this.floorMesh = new InstancedMesh(fGeo, material, MAX_FLOORS);
@@ -252,6 +277,8 @@ export class CityView {
       const tint = DISTRICT_TINTS[data.districts[di]?.color ?? 0];
       this.c.copy(BUILDING_BASE).lerp(tint, 0.2);
       this.buildingMesh.setColorAt(i, this.c);
+      this.c.copy(tint).lerp(BUILDING_BASE, 0.15);
+      this.aRoof.setXYZ(i, this.c.r, this.c.g, this.c.b);
       const rowsVisual = Math.max(1, Math.min(b.functions.length, Math.floor((b.h * CITY_SIZE) / 0.0075)));
       const failFloor = b.functions.findIndex((f) => f.failing);
       this.aInfo.setXYZW(i, Math.max(1, rowsVisual), 0, 0, (i * 0.618) % 1);
@@ -265,11 +292,53 @@ export class CityView {
     if (this.buildingMesh.instanceColor) this.buildingMesh.instanceColor.needsUpdate = true;
     this.aInfo.needsUpdate = true;
     this.aFail.needsUpdate = true;
+    this.aRoof.needsUpdate = true;
     this.openIndex = -1;
     this.open = 0;
     this.detail.visible = false;
     this.setRoutes(-1);
+    this.buildDetails(data, n);
     this.writeBuildings();
+  }
+
+  /** Deterministic rooftop plant on bigger buildings, and trees in the open parts of each district. */
+  private buildDetails(data: CityData, n: number): void {
+    const bits: number[] = [];
+    const of: number[] = [];
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < n && of.length < 200; i++) {
+      const b = data.buildings[i];
+      if (b.w < 0.06 || b.d < 0.06) continue;
+      const count = 1 + Math.floor(rnd() * Math.min(3, (b.w * b.d) / 0.004));
+      for (let k = 0; k < count && of.length < 200; k++) {
+        const sw = 0.012 + rnd() * 0.02, sd = 0.012 + rnd() * 0.02, sh = 0.008 + rnd() * 0.014;
+        const ox = (rnd() - 0.5) * (b.w - sw - 0.012), oz = (rnd() - 0.5) * (b.d - sd - 0.012);
+        bits.push(ox, oz, sw, sd, sh);
+        of.push(i);
+      }
+    }
+    this.roofBitOf = Int16Array.from(of);
+    this.roofBitBox = Float32Array.from(bits);
+    this.roofBits.count = of.length;
+    // trees on a jittered grid inside districts, clear of buildings
+    const pts: number[] = [];
+    const step = 0.034;
+    for (const d of data.districts) {
+      for (let x = d.x - d.w / 2 + 0.014; x < d.x + d.w / 2 - 0.012; x += step) {
+        for (let z = d.z - d.d / 2 + 0.014; z < d.z + d.d / 2 - 0.012; z += step) {
+          const px = x + (rnd() - 0.5) * 0.012, pz = z + (rnd() - 0.5) * 0.012;
+          let clear = true;
+          for (let i = 0; i < n && clear; i++) {
+            const b = data.buildings[i];
+            if (Math.abs(px - b.x) < b.w / 2 + 0.013 && Math.abs(pz - b.z) < b.d / 2 + 0.013) clear = false;
+          }
+          if (clear && pts.length / 3 < 260) pts.push(px, pz, 0.006 + rnd() * 0.005);
+        }
+      }
+    }
+    this.treeAt = Float32Array.from(pts);
+    this.trees.count = pts.length / 3;
   }
 
   /** Start the rise animation (city grows out of the table). */
@@ -364,6 +433,25 @@ export class CityView {
       this.buildingMesh.setMatrixAt(i, this.m);
     }
     this.buildingMesh.instanceMatrix.needsUpdate = true;
+    for (let k = 0; k < this.roofBits.count; k++) {
+      const i = this.roofBitOf[k];
+      const b = data.buildings[i];
+      const r = this.rise[i];
+      const o = k * 5;
+      const vis = r > 0.95 && !(i === this.openIndex && this.open > 0.001) ? 1 : 0.0001;
+      this.m.compose(this.p.set(b.x + this.roofBitBox[o], b.h * r, b.z + this.roofBitBox[o + 1]), this.q.identity(), this.s.set(this.roofBitBox[o + 2] * vis, this.roofBitBox[o + 4] * vis, this.roofBitBox[o + 3] * vis));
+      this.roofBits.setMatrixAt(k, this.m);
+    }
+    this.roofBits.instanceMatrix.needsUpdate = true;
+    let avg = 0;
+    for (let i = 0; i < this.buildingMesh.count; i++) avg += this.rise[i];
+    avg = this.buildingMesh.count ? Math.min(1, avg / this.buildingMesh.count) : 1;
+    for (let k = 0; k < this.trees.count; k++) {
+      const r = this.treeAt[k * 3 + 2] * Math.max(0.0001, avg);
+      this.m.compose(this.p.set(this.treeAt[k * 3], 0.01, this.treeAt[k * 3 + 1]), this.q.identity(), this.s.set(r, r * 1.15, r));
+      this.trees.setMatrixAt(k, this.m);
+    }
+    this.trees.instanceMatrix.needsUpdate = true;
     this.shadowDirty = true;
   }
 
@@ -385,12 +473,16 @@ export class CityView {
     const nf = Math.min(MAX_FLOORS, b.functions.length);
     this.floorCount = nf;
     this.floorMesh.count = nf;
+    const di = this.data.districts.find((x) => x.id === b.district);
+    this.c.copy(DISTRICT_TINTS[(di?.color ?? 0) % DISTRICT_TINTS.length]).lerp(BUILDING_BASE, 0.15);
     for (let f = 0; f < nf; f++) {
+      this.fRoof.setXYZ(f, this.c.r, this.c.g, this.c.b);
       this.fInfo.setXYZW(f, 1, 0, 0, (i * 0.618 + f * 0.13) % 1);
       this.fFail.setX(f, b.functions[f].failing ? 0 : -1);
     }
     this.fInfo.needsUpdate = true;
     this.fFail.needsUpdate = true;
+    this.fRoof.needsUpdate = true;
     this.detail.visible = true;
     this.writeBuildings();
   }

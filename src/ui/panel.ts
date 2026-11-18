@@ -1,4 +1,5 @@
 import type { Building, CityData, Failure, Fix } from '../city/types.js';
+import { DISTRICT_TINTS_HEX } from '../city/city-view.js';
 import { CanvasCard, drawCode, fitText, FONT_CODE, FONT_UI, glass, roundRect, UI } from './canvas.js';
 
 /** Main reading panel, standing behind the city: metres. */
@@ -137,6 +138,16 @@ function drawWelcome(ctx: CanvasRenderingContext2D, a: Area, c: CityData): void 
   stat(ctx, String(c.stats.functions), 'functions = floors', a.x + cw * 2, y, cw);
   if (c.stats.failing > 0) stat(ctx, `${c.stats.failing} failing`, `of ${c.stats.tests.toLocaleString('en-US')} test checks`, a.x + cw * 3, y, cw, UI.fire);
   else stat(ctx, c.stats.tests ? 'all pass' : 'no tests', `${c.stats.tests.toLocaleString('en-US')} test checks`, a.x + cw * 3, y, cw, UI.green);
+  // district legend: the tints on the table, named
+  let lx = a.x;
+  const ly = y + 170;
+  label(ctx, 'districts', a.x, ly, UI.dim, 26);
+  lx = a.x;
+  for (const d of c.districts.slice(0, 8)) {
+    const w = chip(ctx, d.name, lx, ly + 40, DISTRICT_TINTS_HEX[d.color % DISTRICT_TINTS_HEX.length], '#10161f', 32);
+    lx += w + 14;
+    if (lx > a.x + a.w - 120) break;
+  }
   fitText(ctx, `Source: ${c.source.repo} (${c.source.license}). ${c.source.note}`, a.x, a.y + a.h - 50, a.w, 50, { size: 30, color: '#7d8a99' });
 }
 

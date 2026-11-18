@@ -35,6 +35,8 @@ export function createBuildingMaterial(unit: number): { material: MeshStandardMa
         `#include <common>
 attribute vec4 aInfo;
 attribute float aFail;
+attribute vec3 aRoof;
+varying vec3 vRoof;
 varying vec3 vObjPos;
 varying vec3 vObjNormal;
 varying vec3 vScale;
@@ -45,6 +47,7 @@ varying float vFail;`,
         '#include <begin_vertex>',
         `#include <begin_vertex>
 vObjPos = position;
+vRoof = aRoof;
 vObjNormal = normal;
 vInfo = aInfo;
 vFail = aFail;
@@ -62,6 +65,7 @@ uniform float uTime;
 uniform float uUnit;
 uniform float uGlow;
 uniform vec3 uWindow;
+varying vec3 vRoof;
 varying vec3 vObjPos;
 varying vec3 vObjNormal;
 varying vec3 vScale;
@@ -112,7 +116,9 @@ float h31(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fr
     // roof: slightly darker card with a parapet rim
     vec2 e = (0.5 - abs(vObjPos.xz)) * vScale.xz * uUnit;
     float rim = 1.0 - step(0.0016, min(e.x, e.y));
-    diffuseColor.rgb *= mix(0.86, 1.0, rim);
+    // roofs carry their district's tint (the seated view sees mostly roofs); the parapet stays card
+    diffuseColor.rgb = mix(vRoof, diffuseColor.rgb, rim);
+    diffuseColor.rgb *= mix(0.92, 1.0, rim);
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.07, 0.06), fire * 0.9);
   }
   totalEmissiveRadiance += vec3(0.35, 0.65, 1.0) * hover * 0.35;
