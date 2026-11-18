@@ -7,6 +7,7 @@
 
 import { iwsdkDev } from '@iwsdk/vite-plugin-dev';
 import { readFileSync } from 'node:fs';
+import { questDebug } from './tools/quest-debug.mjs';
 import { defineConfig, type Plugin } from 'vite';
 
 /**
@@ -33,7 +34,7 @@ function basisTranscoder(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [iwsdkDev(), basisTranscoder()],
+  plugins: [iwsdkDev(), questDebug(), basisTranscoder()],
   server: { host: '0.0.0.0', port: 8083, open: false }, // one port per project (8081 hands-of-a-master, 8082 chausar)
   build: {
     outDir: 'dist',
