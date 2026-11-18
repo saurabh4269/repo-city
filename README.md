@@ -39,16 +39,19 @@ On a Quest on the same network, open the `https://<your-ip>:8083` address that `
 node tools/repo-to-city/index.mjs --root ../my-repo --include src --out public/cities/mine.json
 # then open https://localhost:8083/?city=./cities/mine.json
 ```
-Add `--tests <results.json>` (format in `tools/repo-to-city/run-tests.mjs`) to set fires from your own test run. Your code stays on your machine: nothing is uploaded.
+The CLI also bakes the city's light next to the JSON (KTX2 if KTX-Software's `ktx` is installed, else PNG; `--no-light` skips it). Add `--tests <results.json>` (format in `tools/repo-to-city/run-tests.mjs`) to set fires from your own test run. Your code stays on your machine: nothing is uploaded.
 
 ## Test
 ```bash
-npm run test:unit    # 28 Node tests: layout, parser, city contract, room placement (incl. Quest 3 downward table normals)
+npm run test:unit    # 33 Node tests: layout, parser, city contract, light bake, room placement (incl. Quest 3 downward table normals)
 npx @iwsdk/cli dev up --ai-mode agent --allow-browser-automation
 npm run test:xr      # the whole hands-only journey in the emulator (13 checks)
 npm run test:xr -- --hand left --drag --jitter 5
 npm run test:xr:tour # same, with a screenshot at every first-of-its-kind moment (artifacts/)
-npm run city         # regenerate both cities (re-runs semver's real test suite, bugged and fixed)
+npm run city         # regenerate both cities (re-runs semver's real test suite, bugged and fixed) and bake their light
+node tools/textures/make-textures.mjs   # the KTX2 shadow masks
+python3 tools/e2e/stats.py <label>      # draw calls, triangles, texture memory + review shots
+bash tools/headset-perf.sh <label>      # on a USB-connected Quest: fps + GPU trace
 ```
 Results and the headset-only checklist: [docs/TESTING.md](docs/TESTING.md).
 
@@ -64,6 +67,8 @@ Results and the headset-only checklist: [docs/TESTING.md](docs/TESTING.md).
 | `src/mr/room-placement.ts` | Choosing the real table among detected planes (pure, unit-tested) |
 | `src/city/types.ts` | The city JSON contract |
 | `tools/repo-to-city/` | Repo → city JSON: parser, treemap layout, test runner, summaries |
+| `tools/repo-to-city/light-bake.mjs` | Bakes each city's ambient occlusion and soft shadows into a KTX2 atlas (layout in `src/city/light-layout.ts`) |
+| `src/city/environment.ts`, `src/city/textures.ts` | The city-matched reflection environment; KTX2 loading with the local Basis transcoder |
 | `tools/e2e/journey.py` | Emulator end-to-end test |
 | `fixtures/semver/` | The vendored semver snapshot (ISC) with the one introduced bug |
 
@@ -72,5 +77,6 @@ Design decisions (physics, engine, offline guide) are in [docs/JUDGING.md](docs/
 ## Credits
 - **semver** (ISC), npm/node-semver v7.7.3: the bundled city and its tests. One line changed; see `fixtures/semver/REPO-CITY-NOTE.md`.
 - **Fonts:** Inter and JetBrains Mono (SIL Open Font License), loaded from Google Fonts with system fallbacks.
+- **Basis Universal transcoder** (Apache-2.0), served from IWSDK's vendored copy; textures encoded at build time with **KTX-Software** (Apache-2.0).
 - **Code reused from this kit:** room placement (Hands of a Master), hand input and the audio-synthesis pattern (Chausar). IWSDK and three.js (MIT).
 - All geometry, textures, particles and sounds are generated in code. Full list: [public/cities/CREDITS.md](public/cities/CREDITS.md).

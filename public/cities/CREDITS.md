@@ -15,3 +15,8 @@ semver's own test suite on that copy and on the fixed copy
 ## repo-city.json
 
 Built from this project's own `src/` folder.
+
+## *.light.ktx2
+
+Baked lighting (ambient occlusion and sun visibility) for each city, generated
+by `tools/repo-to-city/light-bake.mjs` from the city layout. No external assets.

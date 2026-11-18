@@ -313,11 +313,22 @@ def goto_preset(query, storage_key, script='tools/goto.mjs'):
     os.makedirs(os.path.join(ROOT, 'artifacts'), exist_ok=True)
     with open(os.path.join(ROOT, 'artifacts', 'goto-preset.json'), 'w') as f:
         json.dump({'key': storage_key, 'query': query}, f)
+    old = CUR.get('page')
+    if not old:  # nothing pinned yet: the page that logged last before the reload
+        prev = [_page_seq(m)[0] for _, m in logs(since=now_ms() - 20000) if _page_seq(m)[0]]
+        old = prev[-1] if prev else None
     t0 = now_ms() - 50
     r = cli('browser', 'run', script)
-    time.sleep(4)
-    lines = [m for _, m in logs(since=t0) if _page_seq(m)[0]]
-    CUR.update(page=_page_seq(lines[-1])[0] if lines else None, seq=0, since=t0)
+    # pin the NEW page: wait (up to 25 s) for a line from a page other than the one before the reload
+    page, deadline = None, time.time() + 25
+    while time.time() < deadline:
+        time.sleep(1.0)
+        pages = [_page_seq(m)[0] for _, m in logs(since=t0) if _page_seq(m)[0]]
+        fresh = [p for p in pages if p != old]
+        if fresh:
+            page = fresh[-1]
+            break
+    CUR.update(page=page, seq=0, since=t0)
     return r
 
 

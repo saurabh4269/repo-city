@@ -35,9 +35,10 @@ The bundled city is semver, the version library npm uses (ISC licence). We intro
 - **Rendering for a mobile GPU:**
   - all buildings in one instanced draw call, with a procedural window shader: windows sized in real millimetres, floor slabs, contact darkening, burning rows and a charred roof;
   - the fire is particle sprites in two draw calls;
-  - one shadow map, refreshed only when something moves.
+  - lighting baked at build time for each city (ambient occlusion and soft shadows in one ~90 KB KTX2 texture), so no shadow pass runs on the headset;
+  - reflections from a small environment lit like the city: glass windows and glazed roofs.
 - **Placement in rooms we never saw:** labelled table or desk → your hand → a virtual desk. We found on a real Quest 3 that table planes report their normal pointing down, and made the check sign-agnostic.
-- **Tested without a headset:** an end-to-end script drives the whole hands-only journey in Meta's IWER emulator, right- and left-handed with fingertip jitter, plus 28 unit tests.
+- **Tested without a headset:** an end-to-end script drives the whole hands-only journey in Meta's IWER emulator, right- and left-handed with fingertip jitter, plus 33 unit tests.
 
 ### Challenges we ran into
 - **Reading code in a headset.** We cut the panel to 12 lines of large monospace, highlight the bug line, and moved the opened building beside the city so it never covers the text.

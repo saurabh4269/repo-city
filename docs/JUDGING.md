@@ -13,7 +13,7 @@ Meta VR Start Developer Competition 2026. Four criteria, 25% each. Evidence is l
 | Hands only, never needs controllers | Pinch, fingertip touch and two-hand pinch only. Controllers still work (grip + trigger as "pinch") and the guide tells the player to put them down. | `src/input/hands.ts`, `src/director.ts` `updateCare`; e2e runs with `xr set-input-mode hand` |
 | Seated, within ~60 cm | The city's centre sits 0.5 m ahead of the eyes on the real table; the opened building slides out beside it within arm's reach; buttons lie on the table at the near edge. | `IDEAL_AHEAD` in `src/mr/room-placement.ts`, `PLAQUE_Z`, `inspectX` |
 | A satisfying session in ≤ 10 min | The guided journey (place → find the fire → read the failing check → fix → tests green) takes 2–4 minutes; the emulator run finishes it in ~25 s of app time. | `docs/TESTING.md` |
-| ≥ 60 fps on Quest 3/3S | Budget: one instanced draw for all buildings, one for districts, one for the open building's floors, two for the fire; one 1024² shadow map refreshed only when something moves; 72 Hz requested, foveation 0.4. | `perf calls=` dev log; headset check pending (TESTING.md) |
+| ≥ 60 fps on Quest 3/3S | Budget: one instanced draw for all buildings, one for districts, one for the open building's floors, two for the fire; no runtime shadow map: ambient occlusion and soft sun shadows are baked per city at build time into one 512² KTX2 texture; 72 Hz requested, foveation 0.4, 4× MSAA in the XR layer. | `perf calls=` dev log; headset check pending (TESTING.md) |
 | Purposeful passthrough, rooms we never tested | The city stands on *your* table: labelled table/desk plane → hand placement → virtual desk; tilt check is sign-agnostic (Quest 3 reports table normals pointing **down**). Buttons are plaques on the real desk, so your fingertip meets a real surface. | `tools/test/room-placement.test.mjs` (7 synthetic rooms incl. the downward normal) |
 | FoV-aware UI | Main panel ~11° below eye level at ~0.75 m, text ≥ ~0.9°; labels face the head; no head-locked panels (only the placement hint lazy-follows). | `PANEL_POS`, screenshots in `artifacts/` |
 | No logos, brands, identifiable people; English | Procedural city, a lantern guide (not a person); the bundled repo is semver (ISC), shown as code. | `public/cities/CREDITS.md` |
@@ -40,14 +40,20 @@ Meta VR Start Developer Competition 2026. Four criteria, 25% each. Evidence is l
 - **Inclusive defaults:** captions for all speech; sitting only; no time pressure; nothing punishes waiting.
 
 ## Criterion 3: Technical Implementation
-- **Pipeline as code** (`tools/repo-to-city`, Node, no new dependencies): TypeScript compiler API parses JS/TS into functions with spans and a cyclomatic-complexity proxy; an import graph from the syntax tree (require, import, export-from, dynamic import); a deterministic treemap that maximises the smallest building (pinchability); a tap-compatible shim that runs semver's real tests per file; summaries for the offline guide. `npm run city` regenerates everything; 28 unit tests (`npm run test:unit`) cover layout, parser, the city contract and placement.
-- **Rendering on a mobile GPU:** instanced buildings with a procedural window shader (windows sized in metres from the instance scale, lit/unlit per window, floor slabs, contact darkening at the foot of walls, burning rows and a charred roof driven by per-instance attributes); exploded floors reuse the same material; CPU particle fire in two draws (teardrop flame sprites, embers, smoke, steam); lit import routes as one ribbon mesh with a flowing-dash shader; one shadow map that updates only on change.
+- **Pipeline as code** (`tools/repo-to-city`, Node, no new dependencies): TypeScript compiler API parses JS/TS into functions with spans and a cyclomatic-complexity proxy; an import graph from the syntax tree (require, import, export-from, dynamic import); a deterministic treemap that maximises the smallest building (pinchability); a tap-compatible shim that runs semver's real tests per file; summaries for the offline guide. `npm run city` regenerates everything, including the baked light; 33 unit tests (`npm run test:unit`) cover layout, parser, the city contract, the light bake and placement.
+- **Rendering on a mobile GPU:** instanced buildings with a procedural window shader (windows sized in metres from the instance scale, lit/unlit per window, floor slabs, contact darkening at the foot of walls, burning rows and a charred roof driven by per-instance attributes); exploded floors reuse the same material; CPU particle fire in two draws (teardrop flame sprites, embers, smoke, steam); lit import routes as one ribbon mesh with a flowing-dash shader.
+- **Lighting baked at build time** (`tools/repo-to-city/light-bake.mjs`):
+  - a CPU ray tracer over the city's boxes (buildings, rooftop plant and trees, from the same generator the app draws with) writes ambient occlusion and soft sun visibility into a 512² atlas: a top-down map of the ground plus a 16² tile for every wall and roof;
+  - the atlas ships as KTX2 (UASTC, 5 box-filtered mips so tiles never bleed), and the Basis transcoder is served from our own origin;
+  - the shaders apply AO to indirect light and sun visibility to direct light, after three.js has accumulated them;
+  - small props carry per-vertex AO;
+  - reflections come from a 128-px PMREM of a desk room whose window sits where the key light is: windows are low-roughness glass, and each district's roofs have their own roughness.
 - **Room understanding:** plane scoring with semantic labels in both vocabularies, round/small-table handling, a placement report line, `XRAnchor` once placed.
 - **Testing without a headset:** `npm run test:xr` drives the whole hands-only journey in IWER (13 checks; right hand with 3 mm jitter; left hand with 5 mm jitter and pinch-drag), from structured dev logs with page/seq pinning.
 
 ## Criterion 4: Polish & Presentation
 - One look: an architectural model (warm card buildings, muted district tints, walnut plinth) under night-blue glass UI with Inter and JetBrains Mono.
-- Shadows, contact darkening, a soft contact shadow on the real table, a flickering fire light.
+- Baked ambient occlusion and soft shadows (walls darken toward their feet and in alleys; vents and trees cast shadows), soft contact shadows under the plinth, the opened building and every plaque on the real table, a flickering fire light.
 - Trailer plan and shot list: `docs/SUBMISSION.md`.
 
 ## Decisions (asked of every project)
@@ -55,6 +61,15 @@ Meta VR Start Developer Competition 2026. Four criteria, 25% each. Evidence is l
 ### Physics: no rigid-body engine
 **Decision:** no Havok / IWSDK physics. Buildings are instanced static geometry; motion is eased springs and tweens (the city rising with a back-ease overshoot, the roof and floors opening, the building sliding out, the selected floor drawer, particles).
 **Why:** nothing in the mechanic is about mass, collision or stacking. A physics engine would add a WASM module, per-frame cost and failure modes (buildings jittering on a moving anchor) without serving the verb "lift the roof and read". Controlled animation also keeps the layout readable and the e2e tests deterministic.
+
+### Lighting: baked per city, no runtime shadows
+**Decision:** bake ambient occlusion and soft sun shadows at build time (one KTX2 texture per city, ~90 KB) and remove the runtime shadow map.
+**Why:**
+- The city never changes shape except the one building you lift out, so live shadows were re-rendering the whole city every frame something moved (rise, open, drag, sweep) for no extra information.
+- Baking gives what a shadow map can't on a mobile GPU: soft penumbrae and real ambient occlusion between neighbours.
+- It saves ~8 MB of shadow targets and a render pass.
+- The key light sits to the side and about 46° up, so the shadows fall where a seated player looks, across roofs and district plates, not behind buildings.
+- A city made with `tools/repo-to-city` gets its bake in the same step: KTX2 with KTX-Software installed, else PNG.
 
 ### Engine: WebXR + IWSDK, not Unity, Unreal or Godot
 **Decision:** stay on WebXR/IWSDK.
@@ -66,7 +81,8 @@ Meta VR Start Developer Competition 2026. Four criteria, 25% each. Evidence is l
 
 ## Beyond the team's skills (what we adopted and why)
 - **Canvas2D everywhere instead of UIKit panels:** code needs a monospace font, syntax colours, line highlights and fit-to-card text; Canvas gives full control in one texture per card and avoids UIKit's emulator poke issues. Buttons are our own poke/pinch-tested plaques.
-- **Procedural window shader via `onBeforeCompile`** on `MeshStandardMaterial`: keeps PBR lighting and shadows while adding per-instance windows and fire, in one draw call.
+- **Procedural window shader via `onBeforeCompile`** on `MeshStandardMaterial`: keeps PBR lighting while adding per-instance windows, fire and the baked-light lookup, in one draw call.
+- **Baked light for generated geometry:** a city has no fixed mesh to bake in Blender, so the bake is a small ray tracer over the layout's boxes, run by the same pipeline that makes the city. The atlas is indexed per instance and per face.
 - **Panel draw order fix:** transparent panels without depth writes paint over transparent effects drawn earlier, so the panel draws first (`renderOrder = 1`). This hid the whole fire until bisected with a live probe (`tools/probe.mjs`).
 
 ## Gaps (honest)

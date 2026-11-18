@@ -3,10 +3,11 @@
 Three layers: Node unit tests for the pure parts, the hands-only journey in Meta's IWER emulator, and the headset checks only a Quest can prove.
 
 ## 1. Unit tests: `npm run test:unit` (Node `node:test`)
-28 tests, all passing (18 Nov 2026):
+33 tests, all passing (18 Nov 2026):
 - **Layout** (`tools/test/layout.test.mjs`): no overlapping buildings, everything inside its district and the city square, the smallest building side stays pinchable.
 - **Parser** (`parser.test.mjs`): function spans and complexity for declarations, class methods and arrow functions; the shifted code window for the failing floor.
 - **City contract** (`cities.test.mjs` + `validate-city.mjs`): every field and length limit of `src/city/types.ts`; exactly one failing function; failures and streets reference real buildings; the fixed run has 0 failures; the bug line falls inside the failing floor's excerpt.
+- **Light bake** (`light-bake.test.mjs`): on a one-building city the shadow falls on the side away from the key light and the sun side stays lit; the ground darkens next to the wall and not far away; a wall is darker at its foot; atlas tiles never overlap the ground or each other.
 - **Room placement** (`room-placement.test.mjs`), synthetic rooms:
   - an emulator table (normal up) and a **Quest 3 table (normal down)**, both accepted;
   - a 12° slant, a couch and the floor, refused, with the reason counted;
@@ -45,7 +46,7 @@ The journey, hands only (`xr set-input-mode hand`), seated at the emulated livin
 
 Visual review: `npm run test:xr:tour` saves a screenshot at every first-of-its-kind moment (`artifacts/e2e-tour-*.png`); `tools/e2e/closeup.py` shoots the fire and the open building from 30 cm.
 
-**Performance in the emulator** (dev `perf` log; the emulator renders each eye separately, so halve these): 9–55 draw calls, 24–25k triangles. On Quest multiview that is about 28 draw calls, against a budget of 100.
+**Performance in the emulator:** see "Visual pass: rendering numbers" below.
 
 ### Bugs the journey found (all fixed)
 | Symptom | Cause | Fix |
@@ -58,9 +59,51 @@ Visual review: `npm run test:xr:tour` saves a screenshot at every first-of-its-k
 | Code too small to read | 16 lines plus a floor list in a 0.38 m panel | 12 lines over the full width, a taller panel, and the bug line highlighted |
 | The one-function `diff.js` gave a weak awe moment | single floor | the bug moved to `ranges/subset.js` (4 floors) |
 
+## Visual pass: rendering numbers (18 Nov 2026)
+Baked lighting replaced the runtime shadow map. `python3 tools/e2e/stats.py <label>` places the city and reads the dev-only `repoCity.stats()` (renderer info plus an estimate of texture memory from every texture the scene, its environment and the light atlas reach). It also saves the same five shots each time: `artifacts/e2e-<label>-{seated,near,hero,fire,open}.png`.
+
+Emulator: IWER metaQuest3, 800×800 per eye. In IWER every eye is drawn separately (an `XRWebGLLayer`, no multiview), so the Quest's multiview draws about half these calls.
+
+| | before (`4c326ec`) | after (`63e0243`) |
+|---|---|---|
+| Draw calls, city | 46 | 52 |
+| Draw calls, building open | 45 | 48 |
+| Triangles, city / open | 29,792 / 30,624 | 29,920 / 27,172 |
+| Shader programs | 28 | 23 |
+| Estimated texture memory | 25.1 MB | 12.7 MB |
+| · shadow map (1024², colour + depth) | 8.0 MB | none |
+| · environment (PMREM) | 6.0 MB (256 px, gradient) | 1.5 MB (128 px, desk room) |
+| · baked light atlas (512², UASTC → ASTC 4×4, 5 mips) | none | 0.33 MB (90 KB file) |
+| · contact + blob shadow masks | 0.34 MB (canvas) | 0.10 MB (KTX2) |
+| Extra render passes while anything moves | the whole city again into the shadow map, every frame of the rise, open, drag and sweep | none |
+
+The 6 extra draw calls (3 on Quest) are new: the district plates, which had never rendered (an `InstancedMesh` frustum-culled by bounds computed while its count was 0), and soft shadows under the plaques and the opened building. The canvas UI textures (panel 7.9 MB with mipmaps, labels, plaques) stay as they are: they are redrawn at runtime, so they cannot be pre-compressed.
+
+### Anti-aliasing and foveation
+- **The context asks for MSAA.** IWSDK creates the renderer with `antialias: true`, and `stats().contextAntialias` is `true`.
+- **Emulator:** three.js takes the `XRWebGLLayer` path with `antialias: true`, and `stats().xr` reports `layerAntialias: true`.
+- **Quest Browser (code path, three r185 `WebXRManager`):** it supports `XRWebGLBinding.createProjectionLayer`, so three.js renders into a `WebGLMultiviewRenderTarget` with `samples: attributes.antialias ? 4 : 0`, which is 4× multisampled render-to-texture. So MSAA holds in the XR layer as long as the context keeps `antialias: true`. Nothing in this app turns it off.
+- **Foveation:** `src/xr-perf.ts` sets fixed foveation 0.4 (three.js defaults to 1.0) whenever the session becomes visible, and asks for 72 Hz. The emulator layer has no fixed foveation to report.
+- **To prove it on the device:** see the steps below. `repoCity.stats().xr` should read `{ path: 'projection-layer', samples: 4, multiview: true, foveation: 0.4 }`.
+
+### Frame rate on the headset (run when the Quest is plugged in)
+1. Connect the Quest by USB with developer mode on. `npx metavr device list` must show it.
+2. Run `npx @iwsdk/cli dev status` and open its network `https://…:8083` URL in Quest Browser (or the deployed URL). Enter XR and place the city.
+3. Run `bash tools/headset-perf.sh after`. It does three things:
+   - records 20 s of `VrApi` frame stats (`npx metavr log -s VrApi`, or `adb logcat -s VrApi`), giving lines like `FPS=72/72 … GPU%=…`, and writes the mean and minimum FPS to `artifacts/perf-after/summary.txt`;
+   - captures a 10 s GPU Perfetto trace: `npx metavr perf capture --mode gpu --duration 10000 --app com.oculus.browser -o artifacts/perf-after/repo-city-after`;
+   - analyses it: `npx metavr perf analyze-trace --app com.oculus.browser --report-out artifacts/perf-after/report.md`.
+4. Measure three moments: the city idle; the building open with the fire burning (`?state=fire`); and the green test sweep (`?state=fix`, then poke **Run the tests**).
+5. To compare against the old build, check out `4c326ec`, run `bash tools/headset-perf.sh before`, then `npx metavr perf traces` and `npx metavr perf compare <before-id> <after-id>`.
+6. **MSAA and foveation on the device:** on the desktop open `chrome://inspect` (USB), inspect the Quest Browser tab and run `repoCity.stats().xr` in the console (dev server build only). If `samples` is 0, MSAA was lost: check that nothing created the renderer without `antialias`.
+
+**Pass:** a steady 72 fps (60 is the rule's floor) with GPU use below ~90% in all three moments.
+
 ## 3. Headset-only checklist (Quest 3 / 3S, Quest Browser, https)
 Not yet run on a device. Each item needs a real headset:
-- [ ] **72 fps** with the fire burning and the building open, and during the green test sweep (`metavr perf capture`); 60 fps is the floor.
+- [ ] **72 fps** with the fire burning and the building open, and during the green test sweep (`bash tools/headset-perf.sh`, steps above); 60 fps is the floor.
+- [ ] **MSAA and foveation:** `repoCity.stats().xr` reports `samples: 4`, `multiview: true`, `foveation: 0.4`.
+- [ ] **Baked lighting in a real room:** shadows and contact darkening read on the real desk; the city doesn't look too dark under dim room light.
 - [ ] **Real table:** the city lands on a labelled table (Quest reports the normal pointing down, which we handle), on an unlabelled desk, and through hand placement with Space Setup skipped.
 - [ ] **Text legibility** at the real distance: the code panel (~0.75 m), the floor label, the plaques. Foveation is 0.4.
 - [ ] **Pinch on a roof** with real hands (22 mm start / 40 mm release), and the pinch-and-lift drag.

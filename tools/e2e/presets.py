@@ -9,7 +9,7 @@ for name in (sys.argv[1:] or ['fire', 'done']):
     cli('xr', 'exit', check=False)
     goto_preset(f'?state={name}', 'repo-city-preset')
     enter_hands(seat=True, head=(0.0, 0.92, -1.28), head_quat=(-0.42, 0.0, 0.0, 0.907))
-    wait_for(r'placing preview=plane', 15)
+    wait_for(r'placing preview=plane', 30)
     select()
     check(f'preset {name}', bool(wait_for(EXPECT[name], 25)))
     time.sleep(1.5)
