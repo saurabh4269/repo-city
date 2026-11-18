@@ -17,6 +17,8 @@ import {
   XRPlane,
   BoxGeometry,
   AdditiveBlending,
+  Points,
+  type Material,
 } from '@iwsdk/core';
 import { sfx } from './audio.js';
 import { CITY_SIZE, CityView, PLINTH_H } from './city/city-view.js';
@@ -182,6 +184,8 @@ export class RepoCityDirector extends createSystem({
     void Promise.all([loadDataTexture(`${import.meta.env.BASE_URL}textures/contact.ktx2`, this.renderer), loadDataTexture(`${import.meta.env.BASE_URL}textures/blob.ktx2`, this.renderer)])
       .then(([contact, blob]) => {
         this.city.setMasks(contact, blob);
+        this.renderer.initTexture(contact);
+        this.renderer.initTexture(blob);
         this.plaques.setShadow(blob);
       })
       .catch((e) => log(`masks failed ${String(e)}`));
@@ -293,6 +297,7 @@ export class RepoCityDirector extends createSystem({
     loadDataTexture(url, this.renderer)
       .then((t) => {
         if (this.data === data) this.city.setLight(t);
+        this.renderer.initTexture(t); // upload now (placing), not on the first frame the city draws
         log(`light ${data.id} ${(t.image as { width?: number } | null)?.width ?? '?'}px`);
       })
       .catch((e) => log(`light failed ${data.id} ${String(e)}`));
@@ -360,8 +365,49 @@ export class RepoCityDirector extends createSystem({
 
   // ───────────────────────── placement
 
+  private prewarmed = false;
+  /**
+   * Compile every shader the city will need, and upload the UI textures, while
+   * the player is still looking for a table: on the Quest the first frame of the
+   * city cost 818 ms and the first opened building 207 ms (shader compiles and
+   * uploads on first draw). Shallow clones of every object under the anchor
+   * (hidden ones too: floors, crane, flow, fire) go into a detached group that is
+   * compiled with the scene's lights, so nothing is ever drawn.
+   */
+  private prewarm(): void {
+    if (this.prewarmed) return;
+    this.prewarmed = true;
+    const t0 = performance.now();
+    const tmp = new Group();
+    this.anchor.updateWorldMatrix(true, true);
+    this.anchor.traverse((o) => {
+      if (!(o as Mesh).isMesh && !(o as Points).isPoints) return;
+      const c = o.clone(false);
+      c.visible = true;
+      c.frustumCulled = false;
+      tmp.add(c);
+      const mat = (o as Mesh).material as Material | Material[];
+      for (const m of Array.isArray(mat) ? mat : [mat]) {
+        const map = (m as MeshBasicMaterial).map;
+        if (map) this.renderer.initTexture(map);
+      }
+    });
+    this.renderer
+      .compileAsync(tmp, this.camera, this.scene)
+      .then(() => {
+        log(`prewarm ${tmp.children.length} objects ${Math.round(performance.now() - t0)} ms`);
+        // and draw them once through the real (multiview) XR path, collapsed to a point far below the floor
+        tmp.scale.setScalar(1e-6);
+        tmp.position.set(0, -50, 0);
+        this.scene.add(tmp);
+        window.setTimeout(() => this.scene.remove(tmp), 250);
+      })
+      .catch((e) => log(`prewarm failed ${String(e)}`));
+  }
+
   private beginPlacing(): void {
     this.setPhase('placing');
+    this.prewarm();
     this.anchor.visible = false;
     this.virtualDesk.visible = false;
     this.placeKind = 'none';
@@ -902,12 +948,14 @@ export class RepoCityDirector extends createSystem({
     this.setPhase('testing');
     // sweep from the back-left to the front-right of the city
     const order = d.buildings.map((_, i) => i).sort((a, b) => d.buildings[a].x + d.buildings[a].z * 0.4 - (d.buildings[b].x + d.buildings[b].z * 0.4));
+    this.testPanelAt = -1;
     this.testing = { t: 0, order, next: 0, passed: 0, failed: 0, total: run.total, extinguished: this.fireIndex < 0 || this.city.fire[this.fireIndex] <= 0 };
     this.plaques.set([]);
     this.guide('Running the tests…', false);
     this.updateTesting(0);
   }
 
+  private testPanelAt = -1;
   private updateTesting(dt: number): void {
     const d = this.data!;
     const T = this.testing;
@@ -929,8 +977,12 @@ export class RepoCityDirector extends createSystem({
     }
     T.passed = Math.round(k * T.total);
     const file = d.buildings[T.order[Math.max(0, T.next - 1)]]?.path ?? '';
-    this.panelMode = { kind: 'testing', done: T.passed, total: T.total, passed: T.passed, failed: 0, file: `test/${file}` };
-    this.refreshPanel();
+    // the panel is a large canvas texture: redraw it ~6 times a second, not every frame (66-69 fps on Quest)
+    if (T.t - this.testPanelAt >= 0.16 || k >= 1 || dt === 0) {
+      this.testPanelAt = T.t;
+      this.panelMode = { kind: 'testing', done: T.passed, total: T.total, passed: T.passed, failed: 0, file: `test/${file}` };
+      this.refreshPanel();
+    }
     if (k >= 1 && T.t > DUR + 0.6) {
       this.finishJourney();
     }
