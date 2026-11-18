@@ -83,6 +83,15 @@ const CLIENT = String.raw`(() => {
       return req(mode, init).then((s) => { try { hookSession(s, mode); } catch (e) { push('error', { msg: 'quest-debug hook: ' + e }); } return s; },
         (err) => { push('xr', { event: 'request-failed', msg: String(err) }); throw err; });
     };
+    // Quest Browser's "offered" session (the browser's own Enter button) skips requestSession.
+    if (xr.offerSession) {
+      const offer = xr.offerSession.bind(xr);
+      xr.offerSession = (mode, init) => {
+        push('xr', { event: 'offer', mode });
+        return offer(mode, init).then((s) => { try { hookSession(s, mode); } catch (e) { push('error', { msg: 'quest-debug hook: ' + e }); } return s; },
+          (err) => { push('xr', { event: 'offer-failed', msg: String(err) }); throw err; });
+      };
+    }
   };
   wrapXR();
   setInterval(wrapXR, 500);
