@@ -1,7 +1,10 @@
 {
-  "file": "ranges/subset.js",
-  "line": 233,
-  "before": ": b.operator === '>=' && a.operator === '>' ? b",
-  "after": ": b.operator === '>' && a.operator === '>=' ? b",
-  "upstream": "npm/node-semver v7.7.3 has the second form (the fixed line)."
+  "file": "classes/range.js",
+  "line": 258,
+  "before": null,
+  "after": "  comp = comp.replace(re[t.BUILD], '')",
+  "commit": "2471d7543e2e63d9d95358e2405e7e1cde926c36",
+  "subject": "fix: x-range build metadata support",
+  "date": "2025-09-24",
+  "upstream": "A real bug and its real fix: npm/node-semver commit 2471d75 (in v7.7.3) added this line to parseComparator. The snapshot has it removed again; the tests (including the ones that commit added) are unchanged."
 }

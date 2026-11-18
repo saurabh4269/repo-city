@@ -201,7 +201,10 @@ export function buildCity (args) {
   const failingFnName = failingBuilding?.functions.find((fn) => fn.failing)?.name
   const mapFailure = (f) => {
     const src = buildings.find((b) => b._testFile === f.testFile)
-    const building = src ? src.id : (failingBuilding ? failingBuilding.id : buildings[0].id)
+    // a failure whose stack runs through the file with the bug belongs to that building, whichever test caught it
+    // or that the fix turns green (the fixed run of that test file has no failures)
+    const viaStack = failingBuilding && (`${f.actual}\n${f.message}`.includes(`${failingBuilding.id}:`) || (fixedResults?.files?.[f.testFile] && fixedResults.files[f.testFile].failed === 0))
+    const building = viaStack ? failingBuilding.id : src ? src.id : (failingBuilding ? failingBuilding.id : buildings[0].id)
     const bld = byId.get(building)
     const fn = building === failingBuilding?.id ? failingFnName : (bld.functions[0]?.name || '(module)')
     return {
@@ -211,7 +214,7 @@ export function buildCity (args) {
       testName: clip(f.testName, 120),
       assertion: clip(f.assertion || '', 60),
       expected: clip(f.expected, 200),
-      actual: clip(f.actual, 200),
+      actual: clip(f.actual, 400),
       message: clip(f.message, 120),
     }
   }
@@ -224,8 +227,9 @@ export function buildCity (args) {
       building: failingBuilding.id,
       fn: failingFnName,
       line: fixSpec.line,
-      before: clip(fixSpec.before, 60),
-      after: clip(fixSpec.after, 60),
+      before: fixSpec.before === null ? '' : clip(fixSpec.before, 60),
+      after: clip(fixSpec.after.trim(), 60),
+      ...(fixSpec.commit ? { commit: { hash: fixSpec.commit.slice(0, 7), subject: clip(fixSpec.subject || '', 80), date: fixSpec.date || '', repo: sm.source?.repo || '' } } : {}),
       explanation: clip(sm.fix?.explanation || `Line ${fixSpec.line} was changed back to its original form.`, 240),
       run: toRun(fixedResults || results, (fixedResults?.failures || []).map(mapFailure)),
     }

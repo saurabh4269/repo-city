@@ -87,7 +87,7 @@ export function validateCity (c) {
     need(bIds.has(f.building), 'fix.building unknown')
     need(byId.get(f.building)?.functions.some((fn) => fn.name === f.fn), 'fix.fn is not a floor of fix.building')
     num(f.line, 'fix.line')
-    str(f.before, 60, 'fix.before'); str(f.after, 60, 'fix.after'); str(f.explanation, 240, 'fix.explanation')
+    str(f.before, 60, 'fix.before', { empty: true }); str(f.after, 60, 'fix.after'); str(f.explanation, 240, 'fix.explanation')
     run(f.run, 'fix.run')
   }
   str(c.guide?.intro, 200, 'guide.intro'); str(c.guide?.onFire, 200, 'guide.onFire'); str(c.guide?.done, 160, 'guide.done')

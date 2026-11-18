@@ -112,8 +112,10 @@ export interface Fix {
   building: string;
   fn: string;
   line: number; // 1-based line in the file
-  before: string; // the buggy line (trimmed, ≤ 60 chars)
+  before: string; // the buggy line (trimmed, ≤ 60 chars); '' when the bug is a missing line (the fix inserts `after`)
   after: string; // the fixed line
+  /** Where the fix comes from, when it is a real commit: hash, subject, date (YYYY-MM-DD), repo. */
+  commit?: { hash: string; subject: string; date: string; repo: string };
   /** One or two sentences: why it failed and what the fix changes. ≤ 240 chars. */
   explanation: string;
   /** The real run after the fix. */

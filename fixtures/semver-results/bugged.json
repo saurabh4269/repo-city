@@ -1,10 +1,10 @@
 {
   "runner": "tap-shim (tap 16 API) on node 26.13.0",
   "variant": "bugged",
-  "total": 8827,
-  "passed": 8824,
-  "failed": 3,
-  "durationMs": 11212,
+  "total": 8817,
+  "passed": 8797,
+  "failed": 20,
+  "durationMs": 12810,
   "files": {
     "test/bin/semver.js": {
       "passed": 46,
@@ -19,8 +19,8 @@
       "failed": 0
     },
     "test/classes/range.js": {
-      "passed": 554,
-      "failed": 0
+      "passed": 534,
+      "failed": 10
     },
     "test/classes/semver.js": {
       "passed": 860,
@@ -195,45 +195,198 @@
       "failed": 0
     },
     "test/ranges/subset.js": {
-      "passed": 89,
-      "failed": 3
+      "passed": 92,
+      "failed": 0
     },
     "test/ranges/to-comparators.js": {
       "passed": 73,
       "failed": 0
     },
     "test/ranges/valid.js": {
-      "passed": 108,
-      "failed": 0
+      "passed": 98,
+      "failed": 10
     }
   },
   "failures": [
     {
-      "testFile": "test/ranges/subset.js",
-      "testName": "test/ranges/subset.js",
-      "line": 112,
-      "assertion": "t.equal(subset(sub, dom, options), expect, msg)",
-      "expected": "true",
-      "actual": "false",
-      "message": ">1.2.3-pre.0 ⊂ >=1.2.3-pre.0 = true"
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > 1.x.x+build >2.x+build >=1.0.0 <2.0.0-0 >=3.0.0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: >2.x+build\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range.js:",
+      "message": "test threw: Invalid comparator: >2.x+build"
     },
     {
-      "testFile": "test/ranges/subset.js",
-      "testName": "test/ranges/subset.js",
-      "line": 112,
-      "assertion": "t.equal(subset(sub, dom, options), expect, msg)",
-      "expected": "false",
-      "actual": "true",
-      "message": ">=1.0.0 <2.0.0 ⊂ >1.0.0 = false"
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > >=1.x+build <2.x.x+build >=1.0.0 <2.0.0-0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: >=1.x+build\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range.js",
+      "message": "test threw: Invalid comparator: >=1.x+build"
     },
     {
-      "testFile": "test/ranges/subset.js",
-      "testName": "test/ranges/subset.js",
-      "line": 112,
-      "assertion": "t.equal(subset(sub, dom, options), expect, msg)",
-      "expected": "true",
-      "actual": "false",
-      "message": ">2.0.0 ⊂ >=2.0.0 = true"
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > 1.x+build.123 >=1.0.0 <2.0.0-0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: 1.x+build.123\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range.",
+      "message": "test threw: Invalid comparator: 1.x+build.123"
+    },
+    {
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > >1.x+build <=2.x.x+meta >=2.0.0 <3.0.0-0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: >1.x+build\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range.js:",
+      "message": "test threw: Invalid comparator: >1.x+build"
+    },
+    {
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > ^1.x+build >=1.0.0 <2.0.0-0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: ^1.x+build\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range.js:",
+      "message": "test threw: Invalid comparator: ^1.x+build"
+    },
+    {
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > ^1.x+meta-data >=1.0.0 <2.0.0-0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: ^1.x+meta-data\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range",
+      "message": "test threw: Invalid comparator: ^1.x+meta-data"
+    },
+    {
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > ~1.x+build >=1.0.0 <2.0.0-0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: ~1.x+build\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range.js:",
+      "message": "test threw: Invalid comparator: ~1.x+build"
+    },
+    {
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > ~1.x+meta-data >=1.0.0 <2.0.0-0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: ~1.x+meta-data\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range",
+      "message": "test threw: Invalid comparator: ~1.x+meta-data"
+    },
+    {
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > ~1.x.x+build >2.x+meta >=1.0.0 <2.0.0-0 >=3.0.0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: >2.x+meta\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range.js:2",
+      "message": "test threw: Invalid comparator: >2.x+meta"
+    },
+    {
+      "testFile": "test/classes/range.js",
+      "testName": "range parsing > ^1.x+build.123 <2.x.x+meta-data >=1.0.0 <2.0.0-0 null",
+      "line": 27,
+      "assertion": "t.equal(new Range(range, options).range || '*', expect, `${range} => ${expect}`)",
+      "expected": "",
+      "actual": "TypeError: Invalid comparator: ^1.x+build.123\n    at Comparator.parse (classes/comparator.js:41:13)\n    at new Comparator (classes/comparator.js:25:10)\n    at classes/range.js:154:47\n    at Array.map (<anonymous>)\n    at Range.parseRange (classes/range.js:154:35)\n    at classes/range.js:42:22\n    at Array.map (<anonymous>)\n    at new Range (classes/range.js:42:8)\n    at Test.fn (test/classes/range",
+      "message": "test threw: Invalid comparator: ^1.x+build.123"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0 >=3.0.0'",
+      "actual": "null",
+      "message": "validRange(1.x.x+build >2.x+build) === >=1.0.0 <2.0.0-0 >=3.0.0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0'",
+      "actual": "null",
+      "message": "validRange(>=1.x+build <2.x.x+build) === >=1.0.0 <2.0.0-0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0'",
+      "actual": "null",
+      "message": "validRange(1.x+build.123) === >=1.0.0 <2.0.0-0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=2.0.0 <3.0.0-0'",
+      "actual": "null",
+      "message": "validRange(>1.x+build <=2.x.x+meta) === >=2.0.0 <3.0.0-0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0'",
+      "actual": "null",
+      "message": "validRange(^1.x+build) === >=1.0.0 <2.0.0-0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0'",
+      "actual": "null",
+      "message": "validRange(^1.x+meta-data) === >=1.0.0 <2.0.0-0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0'",
+      "actual": "null",
+      "message": "validRange(~1.x+build) === >=1.0.0 <2.0.0-0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0'",
+      "actual": "null",
+      "message": "validRange(~1.x+meta-data) === >=1.0.0 <2.0.0-0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0 >=3.0.0'",
+      "actual": "null",
+      "message": "validRange(~1.x.x+build >2.x+meta) === >=1.0.0 <2.0.0-0 >=3.0.0 null"
+    },
+    {
+      "testFile": "test/ranges/valid.js",
+      "testName": "valid range test",
+      "line": 12,
+      "assertion": "t.equal(validRange(pre, options), wanted,",
+      "expected": "'>=1.0.0 <2.0.0-0'",
+      "actual": "null",
+      "message": "validRange(^1.x+build.123 <2.x.x+meta-data) === >=1.0.0 <2.0.0-0 null"
     }
   ]
 }

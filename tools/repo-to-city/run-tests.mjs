@@ -52,11 +52,24 @@ function listTests (root, testDir, excludeDirs) {
   return res.sort()
 }
 
-/** Apply fix.json ({file, line, before, after}) to a file; throws if the line does not match. */
+/**
+ * Apply fix.json ({file, line, before, after}) to a file; throws if the line does not match.
+ * `before: null` is a missing line: the fix inserts `after` at `line` (and 'unfix' removes it).
+ */
 export function applyFix (root, fix, direction = 'fix') {
   const file = path.join(root, fix.file)
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const idx = fix.line - 1
+  if (fix.before === null) {
+    if (direction === 'fix') {
+      lines.splice(idx, 0, fix.after)
+    } else {
+      if (lines[idx].trim() !== fix.after.trim()) throw new Error(`${fix.file}:${fix.line} expected "${fix.after.trim()}" but found "${lines[idx].trim()}"`)
+      lines.splice(idx, 1)
+    }
+    fs.writeFileSync(file, lines.join('\n'))
+    return
+  }
   const [from, to] = direction === 'fix' ? [fix.before, fix.after] : [fix.after, fix.before]
   if (lines[idx].trim() !== from.trim()) {
     throw new Error(`${fix.file}:${fix.line} expected "${from.trim()}" but found "${lines[idx].trim()}"`)
@@ -116,7 +129,7 @@ export async function runTests ({ root, fix, variant = 'bugged', testDir = 'test
     } else if (fix) {
       // sanity: the snapshot on disk must be the bugged version
       const line = fs.readFileSync(path.join(root, fix.file), 'utf8').split('\n')[fix.line - 1]
-      if (line.trim() !== fix.before.trim()) throw new Error(`${fix.file}:${fix.line} is not the bugged line: "${line.trim()}"`)
+      if (fix.before === null ? line.trim() === fix.after.trim() : line.trim() !== fix.before.trim()) throw new Error(`${fix.file}:${fix.line} is not the bugged version: "${line.trim()}"`)
     }
     const resultsDir = path.join(tmp, 'results')
     fs.mkdirSync(resultsDir)
@@ -132,15 +145,17 @@ export async function runTests ({ root, fix, variant = 'bugged', testDir = 'test
       files[r.file] = { passed: r.passed, failed: r.failed }
       passed += r.passed
       failed += r.failed
+      // stacks name files relative to the repo: no local paths (or user names) leave this machine
+      const rel = (v) => String(v ?? '').split(runRoot + path.sep).join('').split(path.resolve(root) + path.sep).join('').replace(/\(?file:\/\/[^)\s]*node_modules[^)\s]*\)?/g, '')
       for (const f of r.failures) {
         failures.push({
           testFile: f.testFile,
           testName: f.testName,
           line: f.line || 0,
           assertion: f.assertion,
-          expected: String(f.expected).slice(0, 400),
-          actual: String(f.actual).slice(0, 400),
-          message: f.message,
+          expected: rel(f.expected).slice(0, 400),
+          actual: rel(f.actual).slice(0, 400),
+          message: rel(f.message),
         })
       }
     }

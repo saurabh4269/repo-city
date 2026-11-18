@@ -203,8 +203,23 @@ function drawFire(ctx: CanvasRenderingContext2D, a: Area, b: Building, f: Failur
   ctx.fillStyle = UI.codeBg;
   ctx.fill();
   fitText(ctx, f.assertion, a.x + 24, y + 14, a.w - 48, 52, { size: 40, font: FONT_CODE, color: '#e6e1d6' });
-  // expected vs actual
   const yy = y + 100;
+  // a thrown error: the message, then the top of the real stack (frames in the repo, not node internals)
+  if (!f.expected && /\s+at \S/.test(f.actual)) {
+    // the pipeline flattens whitespace, so split the stack on its "at" frames
+    const [msg, ...rest] = f.actual.split(/\s+(?=at \S)/);
+    const frames = rest.map((l) => l.trim().replace(/…$/, '')).filter((l) => !/node:|<anonymous>|node_modules/.test(l)).slice(0, 4);
+    roundRect(ctx, a.x, yy, a.w, 290, 18);
+    ctx.fillStyle = 'rgba(255,106,61,0.14)';
+    ctx.fill();
+    label(ctx, 'threw', a.x + 24, yy + 18, UI.fire, 28);
+    fitText(ctx, msg, a.x + 24, yy + 54, a.w - 48, 64, { size: 46, weight: 700, font: FONT_CODE, color: '#ffd2c2' });
+    frames.forEach((fr, k) => fitText(ctx, fr, a.x + 24, yy + 128 + k * 38, a.w - 48, 36, { size: 30, font: FONT_CODE, color: k ? UI.dim : '#e6e1d6' }));
+    const fnLine = fix ? `The bug is on floor "${f.fn}" of ${b.name}, near line ${fix.line}.` : `It fails inside "${f.fn}" in ${b.name}.`;
+    fitText(ctx, fnLine, a.x, yy + 312, a.w, a.h - (yy + 312 - a.y), { size: 38, color: UI.text });
+    return;
+  }
+  // expected vs actual
   const half = (a.w - 24) / 2;
   roundRect(ctx, a.x, yy, half, 150, 18);
   ctx.fillStyle = 'rgba(126,224,166,0.12)';
@@ -232,8 +247,16 @@ function drawFix(ctx: CanvasRenderingContext2D, a: Area, b: Building, fix: Fix):
     [0, 'rgba(255,106,61,0.25)'],
     [1, 'rgba(126,224,166,0.22)'],
   ]);
-  drawCode(ctx, [`- ${fix.before}`, `+ ${fix.after}`], a.x + 16, y + 30, a.w - 40, 150, { firstLine: fix.line, hi, maxSize: 52, minRows: 2 });
-  fitText(ctx, fix.explanation, a.x, y + 228, a.w, a.h - 228 - 80, { size: 42, lineHeight: 1.3 });
+  // a missing line is fixed by inserting it: the diff is one green line
+  const diff = fix.before ? [`- ${fix.before}`, `+ ${fix.after}`] : [`+ ${fix.after}`];
+  if (!fix.before) hi.set(0, 'rgba(126,224,166,0.22)');
+  drawCode(ctx, diff, a.x + 16, y + 30, a.w - 40, 150, { firstLine: fix.line, hi, maxSize: 52, minRows: 2 });
+  let ty = y + 228;
+  if (fix.commit) {
+    fitText(ctx, `Upstream commit ${fix.commit.hash} · ${fix.commit.subject} · ${fix.commit.date}`, a.x, ty, a.w, 48, { size: 34, weight: 700, color: UI.green, font: FONT_CODE });
+    ty += 64;
+  }
+  fitText(ctx, fix.explanation, a.x, ty, a.w, a.h - (ty - a.y) - 20, { size: 40, lineHeight: 1.3 });
 }
 
 function drawTesting(ctx: CanvasRenderingContext2D, a: Area, m: { done: number; total: number; passed: number; failed: number; file: string }): void {

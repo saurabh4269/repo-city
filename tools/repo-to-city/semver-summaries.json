@@ -6,7 +6,7 @@
     "url": "https://github.com/npm/node-semver/tree/v7.7.3",
     "commit": "a25789b09b1192fa8414c35f2cd679ae2e1d5192",
     "license": "ISC",
-    "note": "semver v7.7.3, unchanged except one line in ranges/subset.js (line 233, in higherGT: the two operators swapped) so that real tests fail."
+    "note": "semver v7.7.3 with one real bug put back: the line that commit 2471d75 (Sep 2025, 'fix: x-range build metadata support') added to classes/range.js."
   },
   "districts": {
     "classes": "The three core types: SemVer (one version), Comparator (one condition like >=1.2.0) and Range (a whole range made of comparators).",
@@ -65,10 +65,10 @@
   },
   "guide": {
     "intro": "This is semver, the code npm uses to understand version numbers. Each building is a file, each floor a function. One building is on fire: a real test is failing.",
-    "onFire": "{file} is burning, in {fn}. {failed} checks fail: it now thinks >2.0.0 is looser than >=2.0.0, so subset answers wrongly for ranges with the same lower version.",
-    "done": "All {total} checks pass again. Two operators in {fn} went back to their places and the fire is out."
+    "onFire": "{file} is burning, in {fn}. {failed} real checks fail: ranges like >2.x+build throw 'Invalid comparator', because build metadata isn't stripped first.",
+    "done": "All {total} checks pass again. The crane installed the real upstream fix, commit 2471d75, and the fire is out."
   },
   "fix": {
-    "explanation": "When two lower bounds share a version, higherGT must keep >X over >=X because it is stricter. The bug swapped the operators, so it kept >=X and subset gave wrong answers."
+    "explanation": "Build metadata (+build) means nothing in a range, so parseComparator must strip it before parsing. Without this line, '>2.x+build' reaches the comparator parser and throws. This is the real upstream fix (commit 2471d75)."
   }
 }

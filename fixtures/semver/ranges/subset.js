@@ -230,7 +230,7 @@ const higherGT = (a, b, options) => {
   const comp = compare(a.semver, b.semver, options)
   return comp > 0 ? a
     : comp < 0 ? b
-    : b.operator === '>=' && a.operator === '>' ? b
+    : b.operator === '>' && a.operator === '>=' ? b
     : a
 }
 

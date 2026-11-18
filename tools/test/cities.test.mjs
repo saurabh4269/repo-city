@@ -32,28 +32,37 @@ test('semver: exactly one failing floor, the one holding the fix line', () => {
   // the excerpt shows the bug line
   const codeLines = fn.code.split('\n')
   const at = codeLines[fn.bugLine - (fn.codeStart ?? fn.startLine)]
-  assert.equal(at.trim(), fix.before.trim().slice(0, 59).length < fix.before.trim().length ? at.trim() : fix.before.trim())
+  if (fix.before === null) {
+    // a missing line: the excerpt shows where it goes (the line after it in the bugged file), and the fix inserts it
+    assert.ok(at !== undefined, 'the excerpt reaches the bug line')
+    assert.equal(semver.fix.before, '')
+    assert.equal(semver.fix.after, fix.after.trim())
+    assert.equal(semver.fix.commit?.hash, fix.commit.slice(0, 7))
+  } else {
+    assert.equal(at.trim(), fix.before.trim().slice(0, 59).length < fix.before.trim().length ? at.trim() : fix.before.trim())
+  }
 })
 
-test('semver: failures are real, few, in one test file and point at the burning building', () => {
-  assert.ok(semver.run.failed >= 2 && semver.run.failed <= 10, `failed=${semver.run.failed}`)
+test('semver: failures are real, few, and point at the burning building', () => {
+  assert.ok(semver.run.failed >= 2 && semver.run.failed <= 30, `failed=${semver.run.failed}`)
   assert.equal(semver.run.failed, bugged.failed)
   assert.equal(semver.run.total, bugged.total)
-  assert.equal(new Set(semver.run.failures.map((f) => f.testFile)).size, 1)
   for (const f of semver.run.failures) {
     assert.equal(f.building, semver.fix.building)
     assert.equal(f.fn, semver.fix.fn)
     assert.ok(f.assertion.length > 0, 'assertion line captured')
   }
   const b = semver.buildings.find((x) => x.id === semver.fix.building)
-  assert.equal(b.tests.failed, semver.run.failed)
+  // its own test file fails too (other test files that reach it through imports fail as well)
+  assert.ok(b.tests.failed >= 1 && b.tests.failed <= semver.run.failed)
 })
 
-test('semver: the fixed run is green and has the same number of assertions', () => {
+test('semver: the fixed run is green (and has at least as many assertions)', () => {
   assert.ok(semver.fix, 'fix present')
   assert.equal(semver.fix.run.failed, 0)
   assert.equal(fixed.failed, 0)
-  assert.equal(semver.fix.run.total, semver.run.total)
+  // a thrown error ends its test early, so the bugged run counts a few fewer assertions
+  assert.ok(semver.fix.run.total >= semver.run.total)
   assert.equal(semver.stats.tests, semver.run.total)
   assert.equal(semver.stats.failing, semver.run.failed)
 })
@@ -79,12 +88,12 @@ test('streets reference existing buildings and match building imports', () => {
   assert.ok(semver.streets.length > 40)
 })
 
-test('repo-city.json (if built) matches the contract and has nothing on fire', () => {
+// Repo City's own city shows its real tool-test run, whatever it was (this test runs inside that build,
+// so asserting "nothing on fire" here would only ever echo the previous build).
+test('repo-city.json (if built) matches the contract, with no invented fix', () => {
   const p = path.join(ROOT, 'public/cities/repo-city.json')
   if (!fs.existsSync(p)) return
   const c = load('public/cities/repo-city.json')
   assert.deepEqual(validateCity(c), [])
   assert.equal(c.fix, undefined)
-  assert.equal(c.run.failed, 0)
-  assert.ok(c.buildings.every((b) => b.functions.every((f) => !f.failing)))
 })
