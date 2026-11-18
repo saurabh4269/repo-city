@@ -974,6 +974,7 @@ export class RepoCityDirector extends createSystem({
       }
     });
     add(this.scene.environment as Tex, 'scene.environment');
+    add(this.city.uniforms.uLight.value as Tex, 'city.lightAtlas');
     const xrt = r.xr.isPresenting ? ((r.xr as unknown as { getRenderTarget(): unknown }).getRenderTarget() as { samples?: number; isWebGLMultiviewRenderTarget?: boolean; width: number; height: number } | null) : null;
     const session = r.xr.getSession();
     const proj = session?.renderState.layers?.[0] as { fixedFoveation?: number } | undefined;
