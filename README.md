@@ -56,7 +56,7 @@ The CLI also bakes the city's light next to the JSON (KTX2 if KTX-Software's `kt
 ```bash
 npm run test:unit    # 51 Node tests: layout (incl. affinity), parser, entry point, your-repo (a generated repo end to end), git history + hotspot score, city contract, light bake, room placement (incl. Quest 3 downward table normals)
 npx @iwsdk/cli dev up --ai-mode agent --allow-browser-automation
-npm run test:xr      # the whole hands-only journey in the emulator (22 checks, incl. a second viewer in another seat and street level)
+npm run test:xr      # the whole hands-only journey in the emulator (23 checks, incl. a second viewer in another seat and street level)
 npm run test:xr -- --hand left --drag --jitter 5
 npm run test:xr:tour # same, with a screenshot at every first-of-its-kind moment (artifacts/)
 npm run city         # regenerate both cities (re-runs semver's real test suite, bugged and fixed) and bake their light

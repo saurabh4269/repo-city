@@ -4,7 +4,7 @@
   "total": 8817,
   "passed": 8797,
   "failed": 20,
-  "durationMs": 12810,
+  "durationMs": 20129,
   "files": {
     "test/bin/semver.js": {
       "passed": 46,

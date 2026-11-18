@@ -253,7 +253,8 @@ export function buildCity (args) {
   for (const b of buildings) delete b._testFile
 
   // guide/fix text may use {total} {passed} {failed} {file} {fn} placeholders
-  const vars = { total: run.total.toLocaleString('en-US'), passed: run.passed.toLocaleString('en-US'), failed: String(run.failed), file: failingBuilding?.name || '', fn: failingFnName || '' }
+  // {total} is the checks after the fix when there is one (the broken run stops early: 8,817 vs 8,827)
+  const vars = { total: (fix?.run ?? run).total.toLocaleString('en-US'), passed: run.passed.toLocaleString('en-US'), failed: String(run.failed), file: failingBuilding?.name || '', fn: failingFnName || '' }
   const fill = (str) => str && str.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
   if (fix) fix.explanation = fill(fix.explanation)
 

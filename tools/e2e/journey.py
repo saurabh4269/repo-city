@@ -193,6 +193,14 @@ m = wait_for(r'plaques (\S+) layout=', 5)
 plaques = field(m, 'layout')
 time.sleep(1.6)
 
+# 7b. Keep exploring (nothing open): the journey hands over to free play (on the Quest it did nothing)
+if 'explore' in plaques:
+    poke_down(plaques['explore'])
+    m = wait_for(r'plaques (\S+) layout=', 5)
+    check('keep exploring opens free play', bool(m) and 'again' in m.group(1), m.group(1) if m else 'no plaques')
+    plaques = field(m, 'layout')
+    time.sleep(1.0)
+
 # 8. Next city, poked from the new seat
 plaques = field(wait_for(r'plaques (\S+) layout=', 6), 'layout') if 'next-city' not in plaques else plaques
 poke_down(plaques['next-city'])

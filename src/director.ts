@@ -747,7 +747,13 @@ export class RepoCityDirector extends createSystem({
       }
       case 'explore':
         this.step = 'free';
-        this.closeBuilding();
+        if (this.city.openIndex >= 0) this.closeBuilding();
+        else {
+          // nothing open (the usual case after the journey): closeBuilding would no-op
+          this.panelMode = { kind: 'welcome' };
+          this.applyStep();
+          this.refreshPanel();
+        }
         break;
       case 'next-city':
         this.useCity(this.cityIndex + 1);

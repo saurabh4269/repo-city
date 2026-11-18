@@ -85,15 +85,15 @@ Measured on a Quest 3 (Quest Browser 156, over Wi-Fi with the dev-only relay `to
 | Found on the headset | Cause | Fix (commit) | Verified |
 |---|---|---|---|
 | Panels, labels and plaques faced the first user's seat when the headset was passed to someone else | the whole anchor was turned once, toward whoever placed the city | a view frame turns the panel, guide, plaques (and the opened building's side) to the current viewer; snaps on `XRReferenceSpace` `reset` (`d2aca77`) | emulator: e2e moves the head to the side of the table, checks panel behind / plaques in front, pokes from there |
-| 818 ms frame when the city appears, 105 ms at placing, 207 ms on the first opened building | shader compiles and texture uploads on first draw | prewarm during placement: `compileAsync` on shallow clones of everything under the anchor (incl. hidden floors, crane, flow, horizon) + one collapsed draw through the XR path; `initTexture` for the light atlas and masks (`57d5e72`) | emulator: `prewarm 37 objects ~50 ms`; **headset: to measure** |
-| 66–69 fps for ~6 s during the test run | the panel (a large mipmapped canvas) was redrawn and re-uploaded every frame | the run panel redraws ~6 times a second (`57d5e72`) | **headset: to measure** |
+| 818 ms frame when the city appears, 105 ms at placing, 207 ms on the first opened building | shader compiles and texture uploads on first draw | prewarm during placement: `compileAsync` on shallow clones of everything under the anchor (incl. hidden floors, crane, flow, horizon) + one collapsed draw through the XR path; `initTexture` for the light atlas and masks (`57d5e72`) | headset (18 Nov, 21:47): city appears with a 122–180 ms worst frame (was 818); first building opens at 100 ms (was 207); later panels 43–74 ms. Prewarm itself takes 77–95 ms, or 1.04 s on a cold first load, while you're still choosing the spot. Smaller, not gone |
+| 66–69 fps for ~6 s during the test run | the panel (a large mipmapped canvas) was redrawn and re-uploaded every frame | `57d5e72` redrew ~6×/s: headset still 67.5 fps, ~5 long frames/s (each redraw of the 1440×1056 mipmapped panel costs a frame). Now the panel is drawn once and the live file, bar and counts go on a small unmipmapped card in front of it (~1/7 the pixels) | **headset: to re-measure** |
 | The bug, panel and fix "didn't look real" | an invented bug | a real bug from semver's history (commit 2471d75), real error + stack, real upstream diff (`8656316`); your own repo in one command (`1b0ff79`) | unit tests (51) + e2e |
 
 The emulator also needed one fix: the relay's XR hooks wrapped IWER's session and broke table placement there, so they now run on Quest Browser only.
 
-Street level (`486600b`), emulator: ~35 draw calls per eye, 38k triangles. **Headset: to measure** (`perf` lines in the relay log while it's on).
+Street level (`486600b`), emulator: ~35 draw calls per eye, 38k triangles. **Headset (18 Nov): 72 fps** at 35 draws, scaled to 7–8×, p95 14.5 ms. Also on the headset: facing re-snaps on every Quest recenter (3 tried), two-hand scale works on both cities. Found there and fixed: "Keep exploring" did nothing when no building was open; the done line said 8,817 checks (the broken run's count) instead of 8,827.
 
-E2E journey: 22 checks (adds: a viewer in another seat; street level on, one-hand pan, back to the desk).
+E2E journey: 23 checks (adds: a viewer in another seat; street level on, one-hand pan, back to the desk; Keep exploring).
 
 ## City-life features (18 Nov 2026, evening)
 Town hall, fix crane, weathering, data flow and the affinity layout (`docs/SPEC-city-life.md`), one commit each, each with typecheck, unit tests and both-hand e2e green before the next.

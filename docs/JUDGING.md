@@ -93,7 +93,7 @@ Meta VR Start Developer Competition 2026. Four criteria, 25% each. Evidence is l
 - **Panel draw order fix:** transparent panels without depth writes paint over transparent effects drawn earlier, so the panel draws first (`renderOrder = 1`). This hid the whole fire until bisected with a live probe (`tools/probe.mjs`).
 
 ## Gaps (honest)
-- Verified on a Quest 3 (18 Nov evening, Quest Browser 156): hands detected, a steady 72 fps (p95 14.6 ms) at ~34 draw calls, the whole journey. Not yet measured on the device: the prewarm and testing-dip fixes, and street level (emulator: ~35 draws per eye, 38k triangles).
+- Verified on a Quest 3 (18 Nov evening, Quest Browser 156): hands detected, a steady 72 fps (p95 14.6 ms) at ~34 draw calls, the whole journey. Re-measured after the fixes: street level holds 72 fps; the hitch when the city appears dropped from 818 ms to 122–180 ms, and the first building opening from 207 to 100 ms. The test-run dip was still there (67.5 fps), so the live part of that panel moved to a small separate card; not yet re-measured on the device.
 - Agent fix proposals as worker characters (the team's idea) are not built: no time before the freeze.
 - The guide is scripted from real data, not conversational.
 - "Your own repo" is one command on your machine (`npm run city:repo -- <path>`, Node's built-in test runner) and a `?city=` link; there is no in-headset file picker, and other test runners need their results passed in.

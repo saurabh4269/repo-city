@@ -22,10 +22,39 @@ export type PanelMode =
  */
 export class MainPanel {
   readonly card = new CanvasCard(PANEL_W, PANEL_H, 2400, true);
+  /**
+   * The live part of the test run (file, bar, counts) on its own small card in
+   * front of the panel. Redrawing the whole mipmapped panel ~6x/s cost a frame
+   * each time on Quest (67 fps through the run); this card is ~1/7 the pixels
+   * and has no mipmaps.
+   */
+  readonly ticker: CanvasCard;
   guide = '';
   city: CityData | null = null;
 
+  constructor() {
+    const s = TICKER_PX / PANEL_PX;
+    this.ticker = new CanvasCard(TICKER.w / PANEL_PX, TICKER.h / PANEL_PX, TICKER_PX);
+    this.ticker.mesh.name = 'test-ticker';
+    this.ticker.mesh.renderOrder = 11;
+    this.ticker.mesh.position.set((TICKER.x + TICKER.w / 2) / PANEL_PX - PANEL_W / 2, PANEL_H / 2 - (TICKER.y + TICKER.h / 2) / PANEL_PX, 0.001);
+    this.ticker.mesh.visible = false;
+    this.card.mesh.add(this.ticker.mesh);
+    this.tickerScale = s;
+  }
+  private readonly tickerScale: number;
+
   render(mode: PanelMode): void {
+    const testing = mode.kind === 'testing';
+    this.ticker.mesh.visible = testing;
+    if (testing) {
+      const k = this.tickerScale;
+      this.ticker.draw(JSON.stringify(mode), (ctx) => {
+        ctx.scale(k, k);
+        ctx.translate(-TICKER.x, -TICKER.y);
+        drawTestingLive(ctx, TESTING_AREA, mode);
+      });
+    }
     const key = JSON.stringify([this.guide, modeKey(mode)]);
     this.card.draw(key, (ctx, W, H) => {
       glass(ctx, W, H, undefined, 44);
@@ -87,12 +116,21 @@ function modeKey(m: PanelMode): unknown {
     case 'fire':
     case 'fix':
       return [m.kind, m.b.id];
+    case 'testing':
+      return [m.kind]; // the live part is on the ticker
     default:
       return m;
   }
 }
 
 type Area = { x: number; y: number; w: number; h: number };
+
+/** Panel canvas pixels per metre, and the content area render() lays out (pad 48, guide strip 168 + 32). */
+const PANEL_PX = 2400;
+const TESTING_AREA: Area = { x: 48, y: 200, w: Math.round(PANEL_W * PANEL_PX) - 96, h: 0 };
+/** The ticker's rectangle in panel pixels: from the file line to below the counts. */
+const TICKER = { x: TESTING_AREA.x - 8, y: TESTING_AREA.y + 50, w: TESTING_AREA.w + 16, h: 290 };
+const TICKER_PX = 1600;
 
 function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, size = 30): void {
   ctx.font = `700 ${size}px ${FONT_UI}`;
@@ -259,8 +297,11 @@ function drawFix(ctx: CanvasRenderingContext2D, a: Area, b: Building, fix: Fix):
   fitText(ctx, fix.explanation, a.x, ty, a.w, a.h - (ty - a.y) - 20, { size: 40, lineHeight: 1.3 });
 }
 
-function drawTesting(ctx: CanvasRenderingContext2D, a: Area, m: { done: number; total: number; passed: number; failed: number; file: string }): void {
+function drawTesting(ctx: CanvasRenderingContext2D, a: Area, _m: unknown): void {
   label(ctx, 'Running the test suite', a.x, a.y, UI.blue, 34);
+}
+
+function drawTestingLive(ctx: CanvasRenderingContext2D, a: Area, m: { done: number; total: number; passed: number; failed: number; file: string }): void {
   fitText(ctx, m.file, a.x, a.y + 56, a.w, 60, { size: 44, color: UI.dim, font: `'JetBrains Mono', Menlo, monospace` });
   const y = a.y + 150;
   roundRect(ctx, a.x, y, a.w, 44, 22);
