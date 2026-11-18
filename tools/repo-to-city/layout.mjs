@@ -172,7 +172,63 @@ export function floorWeights (raw, share) {
 }
 
 /**
+ * Affinity between districts: import edges between them, either direction.
+ * `edges` are building-id pairs; `districtOf` maps a building id to its district.
+ * Returns a symmetric Map<string, Map<string, number>>.
+ */
+export function districtAffinity (edges, districtOf) {
+  const A = new Map()
+  const add = (a, b) => {
+    if (!A.has(a)) A.set(a, new Map())
+    A.get(a).set(b, (A.get(a).get(b) || 0) + 1)
+  }
+  for (const e of edges) {
+    const a = districtOf.get(e.from), b = districtOf.get(e.to)
+    if (!a || !b || a === b) continue
+    add(a, b)
+    add(b, a)
+  }
+  return A
+}
+const aff = (A, a, b) => A.get(a)?.get(b) || 0
+
+/**
+ * Chain order (docs/SPEC-city-life.md §5): the heaviest district first, then
+ * repeatedly the unplaced one with the most affinity to those already placed
+ * (ties: heavier, then id). Squarify fills rows in this order, so neighbours
+ * in the chain end up side by side.
+ */
+export function affinityOrder (items, A) {
+  const left = [...items].sort((a, b) => b.weight - a.weight || (a.id < b.id ? -1 : 1))
+  const out = left.length ? [left.shift()] : []
+  while (left.length) {
+    let best = 0, bestS = -1
+    left.forEach((it, i) => {
+      const sc = out.reduce((t, p) => t + aff(A, p.id, it.id), 0)
+      if (sc > bestS) { bestS = sc; best = i } // `left` is already in tie-break order
+    })
+    out.push(left.splice(best, 1)[0])
+  }
+  return out
+}
+
+/** Σ A[a][b] × distance between district centres (each pair once), and the worst district aspect ratio. */
+export function layoutScore (rects, A) {
+  const c = rects.map((r) => ({ id: r.id, x: (r.rect.x0 + r.rect.x1) / 2, z: (r.rect.z0 + r.rect.z1) / 2 }))
+  let cost = 0
+  for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) cost += aff(A, c[i].id, c[j].id) * Math.hypot(c[i].x - c[j].x, c[i].z - c[j].z)
+  const worstAspect = Math.max(1, ...rects.map((r) => {
+    const w = r.rect.x1 - r.rect.x0, d = r.rect.z1 - r.rect.z0
+    return Math.max(w / d, d / w)
+  }))
+  return { cost: Math.round(cost * 10000) / 10000, worstAspect: Math.round(worstAspect * 1000) / 1000 }
+}
+
+/**
  * @param {{id:string, buildings:{id:string, lines:number, complexity:number}[]}[]} districts
+ * opts.mode 'size' (default) or 'affinity'; opts.edges [{from, to}] building ids (imports).
+ * Affinity is used only if it cuts the coupling cost by ≥10% and keeps district
+ * aspect ≤ maxAspect × 1.25; otherwise size, with the reason in `stats`.
  * @returns {{districts: Record<string,{x,z,w,d}>, buildings: Record<string,{x,z,w,d,h}>}}
  */
 export function layoutCity (districts, opts = {}) {
@@ -231,6 +287,24 @@ export function layoutCity (districts, opts = {}) {
     if (better(cand, bestCity)) bestCity = cand
   }
 
+  // affinity: districts that import each other a lot sit side by side (behind a gate)
+  const districtOf = new Map(districts.flatMap((d) => d.buildings.map((b) => [b.id, d.id])))
+  const A = districtAffinity(o.edges || [], districtOf)
+  const sizeScore = layoutScore(bestCity.placed, A)
+  const stats = { mode: 'size', requested: o.mode || 'size', costSize: sizeScore.cost, aspectSize: sizeScore.worstAspect }
+  if (o.mode === 'affinity') {
+    const placed = squarify(affinityOrder(dItems, A), city, false).map((dr) => ({ id: dr.item.id, ...placeDistrict(dr) }))
+    const affScore = layoutScore(placed, A)
+    Object.assign(stats, { costAffinity: affScore.cost, aspectAffinity: affScore.worstAspect })
+    if (sizeScore.cost <= 0) stats.reason = 'no imports between districts'
+    else if (affScore.cost > 0.9 * sizeScore.cost) stats.reason = `affinity cost ${affScore.cost} is not 10% under size ${sizeScore.cost}`
+    else if (affScore.worstAspect > o.maxAspect * 1.25) stats.reason = `affinity district aspect ${affScore.worstAspect} > ${o.maxAspect * 1.25}`
+    else {
+      stats.mode = 'affinity'
+      bestCity = { placed }
+    }
+  }
+
   const outD = {}
   const outB = {}
   for (const p of bestCity.placed) {
@@ -247,5 +321,5 @@ export function layoutCity (districts, opts = {}) {
     const t = hi > lo ? (Math.log(Math.max(1, b.complexity)) - lo) / (hi - lo) : 0.5
     if (outB[b.id]) outB[b.id].h = round(o.minHeight + o.heightRange * t)
   }
-  return { districts: outD, buildings: outB }
+  return { districts: outD, buildings: outB, stats }
 }

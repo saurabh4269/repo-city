@@ -124,6 +124,14 @@ Ground rules for all five:
 - Before-and-after screenshots.
 - Make `affinity` the default only for cities where the gate passed.
 
+*As built:* the gate is in `layout.mjs` (`layoutCity(…, { mode: 'affinity', edges })`), `npm run city` asks for affinity for both cities, and both fall back to size:
+| City | Coupling cost, size | Coupling cost, affinity | Worst district aspect, size → affinity | Result |
+|---|---|---|---|---|
+| semver | 49.60 | 45.32 (−8.6%) | 3.19 → 4.66 | size (not 10% better) |
+| Repo City | 9.47 | 10.02 (+5.8%) | 5.41 → 1.53 | size (costlier) |
+
+The size layout already searches many district orders and two treemap algorithms for the squarest cells, so a single chain order seldom beats it by 10%. The scores are in each city's `stats.layout`, so the shipped layouts are unchanged (no before/after screenshots needed) and the fire-reachability check doesn't apply. On a synthetic city with two strongly coupled small districts the gate passes (cost 8.61 → 4.11; `tools/test/affinity.test.mjs`).
+
 ---
 
 ## Docs

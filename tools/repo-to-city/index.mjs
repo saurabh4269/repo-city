@@ -176,7 +176,11 @@ export function buildCity (args) {
   }
 
   // ---- layout
-  const layout = layoutCity(districtIds.map((did) => ({ id: did, buildings: buildings.filter((b) => b.district === did) })), args.layout || {})
+  // --layout size|affinity (affinity only where it passes its gate; see layout.mjs), or an options object
+  const layoutOpts = args.layout && typeof args.layout === 'object' ? args.layout : { mode: args.layout || 'size' }
+  const edges = buildings.flatMap((b) => b.imports.map((to) => ({ from: b.id, to })))
+  const layout = layoutCity(districtIds.map((did) => ({ id: did, buildings: buildings.filter((b) => b.district === did) })), { ...layoutOpts, edges })
+  if (layout.stats.requested === 'affinity') console.log(`${id}: layout ${layout.stats.mode}${layout.stats.reason ? ` (${layout.stats.reason})` : ''}, coupling cost size ${layout.stats.costSize} / affinity ${layout.stats.costAffinity}`)
   for (const b of buildings) Object.assign(b, layout.buildings[b.id])
 
   const districts = districtIds.map((did, i) => ({
@@ -256,6 +260,7 @@ export function buildCity (args) {
       functions: buildings.reduce((s, b) => s + b.functions.filter((fn) => fn.name !== '(module)').length, 0),
       tests: run.total,
       failing: run.failed,
+      layout: layout.stats,
     },
     districts,
     buildings,
@@ -275,7 +280,7 @@ export function buildCity (args) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = parseArgs(process.argv.slice(2))
   if (!args.root || !args.out) {
-    console.error('usage: index.mjs --root <repo> --out <city.json> [--include a,b] [--exclude a,b] [--base dir] [--tests r.json --fixed r.json --fix fix.json] [--summaries s.json] [--id x --name y]')
+    console.error('usage: index.mjs --root <repo> --out <city.json> [--include a,b] [--exclude a,b] [--base dir] [--tests r.json --fixed r.json --fix fix.json] [--summaries s.json] [--id x --name y] [--history git|h.json] [--layout size|affinity] [--no-light]')
     process.exit(2)
   }
   const city = buildCity(args)

@@ -61,6 +61,7 @@ const semver = buildCity({
   fix: fixFile,
   summaries: p('tools/repo-to-city/semver-summaries.json'),
   ...(fs.existsSync(historyFile) ? { history: historyFile } : {}),
+  layout: 'affinity', // used only if it passes its gate (layout.mjs); the scores land in stats.layout
 })
 semver.light = writeLight(semver, semverOut)
 report(semver, semverOut, writeJson(semverOut, semver))
@@ -102,6 +103,7 @@ const repoCity = buildCity({
   tests: unitFile,
   summaries: p('tools/repo-to-city/repo-city-summaries.json'),
   history: 'git',
+  layout: 'affinity',
 })
 repoCity.light = writeLight(repoCity, repoOut)
 report(repoCity, repoOut, writeJson(repoOut, repoCity))
