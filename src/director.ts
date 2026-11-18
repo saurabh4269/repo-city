@@ -203,6 +203,7 @@ export class RepoCityDirector extends createSystem({
     this.anchor.add(this.viewFrame);
     this.viewFrame.name = 'view-frame';
     this.viewFrame.add(this.virtualDesk);
+    this.ensureHorizon(); // built now (hidden) so the placement prewarm compiles it too
 
     // Main panel standing behind the city, tilted back a little.
     this.panel = new MainPanel();

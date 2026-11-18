@@ -15,7 +15,7 @@ A real code repository rises as a city on your real desk. A failing test is a bu
 Every developer has stared at a red test run and a wall of text. Code has shape (big files, tangled imports, one function everyone is afraid of), but we only ever see it flat. We wanted to hold a codebase in our hands, on the desk where we actually work, and make the one thing that matters right now, the failing test, impossible to miss.
 
 ### What it does
-Repo City turns a real repository into a miniature architectural model on your table, in passthrough mixed reality:
+You're vibecoding and your agent is busy. Put on the headset: your own repo is a city on your desk (`npm run city:repo -- <path>` runs your tests and maps real failures to fires). Repo City turns a real repository into a miniature architectural model on your table, in passthrough mixed reality:
 - **Files are buildings** (footprint from lines of code, height from complexity), **folders are districts**, and **imports are lit routes** between buildings.
 - **A failing test is a fire.** Pinch the burning roof and lift: the building slides out onto your desk as a stack of lit floors, one per function, and one floor is smouldering.
 - **Touch that floor** and the panel shows the real failing check: the assertion, what it expected and what it got.
@@ -24,7 +24,7 @@ Repo City turns a real repository into a miniature architectural model on your t
 - A small **lantern guide** explains every step, out loud and in captions, and flies over to point at what to do next.
 - **Two-hand pinch** scales and turns the city. A second city is Repo City's own source code.
 
-The bundled city is semver, the version library npm uses (ISC licence). We introduced one realistic one-line bug, ran its genuine test suite (8,827 assertions, 3 failing) and the fixed suite (all passing), and built both runs into the city.
+The bundled city is semver, the version library npm uses (ISC licence), with a real bug from its own history put back: the line that upstream commit 2471d75 added in September 2025. Its real tests fail (20 assertions: `Invalid comparator: >2.x+build`), the panel shows the real stack, and the crane installs the real upstream fix: all 8,827 pass. **Street level** grows the city past your table to a horizon you can pan through with one hand, and the panels turn to whoever is sitting at the table.
 
 ### How we built it
 - **WebXR + Meta's Immersive Web SDK (IWSDK 1.1.0)** in Meta Quest Browser, `immersive-ar` with hand tracking, plane detection and anchors.

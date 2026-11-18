@@ -79,6 +79,22 @@ Emulator: IWER metaQuest3, 800×800 per eye. In IWER every eye is drawn separate
 
 The 6 extra draw calls (3 on Quest) are new: the district plates, which had never rendered (an `InstancedMesh` frustum-culled by bounds computed while its count was 0), and soft shadows under the plaques and the opened building. The canvas UI textures (panel 7.9 MB with mipmaps, labels, plaques) stay as they are: they are redrawn at runtime, so they cannot be pre-compressed.
 
+## After the first headset session (18 Nov 2026, ~8 PM)
+Measured on a Quest 3 (Quest Browser 156, over Wi-Fi with the dev-only relay `tools/quest-debug.mjs` → `artifacts/quest-log.jsonl`): hands detected at once, a steady 72 fps (p95 14.6 ms), 20–40 draw calls (multiview), ~17.7k triangles. Found there, fixed here:
+
+| Found on the headset | Cause | Fix (commit) | Verified |
+|---|---|---|---|
+| Panels, labels and plaques faced the first user's seat when the headset was passed to someone else | the whole anchor was turned once, toward whoever placed the city | a view frame turns the panel, guide, plaques (and the opened building's side) to the current viewer; snaps on `XRReferenceSpace` `reset` (`d2aca77`) | emulator: e2e moves the head to the side of the table, checks panel behind / plaques in front, pokes from there |
+| 818 ms frame when the city appears, 105 ms at placing, 207 ms on the first opened building | shader compiles and texture uploads on first draw | prewarm during placement: `compileAsync` on shallow clones of everything under the anchor (incl. hidden floors, crane, flow, horizon) + one collapsed draw through the XR path; `initTexture` for the light atlas and masks (`57d5e72`) | emulator: `prewarm 37 objects ~50 ms`; **headset: to measure** |
+| 66–69 fps for ~6 s during the test run | the panel (a large mipmapped canvas) was redrawn and re-uploaded every frame | the run panel redraws ~6 times a second (`57d5e72`) | **headset: to measure** |
+| The bug, panel and fix "didn't look real" | an invented bug | a real bug from semver's history (commit 2471d75), real error + stack, real upstream diff (`8656316`); your own repo in one command (`1b0ff79`) | unit tests (51) + e2e |
+
+The emulator also needed one fix: the relay's XR hooks wrapped IWER's session and broke table placement there, so they now run on Quest Browser only.
+
+Street level (`486600b`), emulator: ~35 draw calls per eye, 38k triangles. **Headset: to measure** (`perf` lines in the relay log while it's on).
+
+E2E journey: 22 checks (adds: a viewer in another seat; street level on, one-hand pan, back to the desk).
+
 ## City-life features (18 Nov 2026, evening)
 Town hall, fix crane, weathering, data flow and the affinity layout (`docs/SPEC-city-life.md`), one commit each, each with typecheck, unit tests and both-hand e2e green before the next.
 
@@ -131,6 +147,7 @@ Not yet run on a device. Each item needs a real headset:
 - [ ] **Sound:** rise, lift, crackle, alarm, test ticks, steam and the chord are audible and not harsh.
 - [ ] **System menu:** pause and resume (the logic freezes while the menu is up).
 - [ ] **Production URL** logged out: both cities load; fonts load or fall back cleanly.
+- [ ] **After 18 Nov fixes:** no long frame when the city appears or the first building opens (relay `perf` `maxms`); 72 fps through the test run; pass the headset to someone in another chair (panel and plaques turn to them); Quest recenter; street level at 72 fps, the pan feels controllable, "Back to the desk" returns cleanly.
 - [ ] **City-life features:** 72 fps during the crane (fire + crane + open stack) and with flow dots running; the crane reads as a crane at arm's length and doesn't hide the floor it lifts; the flow dots are visible but not noisy; scaffolding and the town-hall dome read as such; the ratchet and clunk aren't harsh.
 - [ ] **A new player, without coaching:** note where they hesitate.
 

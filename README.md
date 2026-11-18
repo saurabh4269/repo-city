@@ -13,7 +13,7 @@ Mixed reality for Meta Quest 3/3S in the browser (WebXR, IWSDK 1.1.0). Hands onl
 - **Scaffolding marks hot spots:** files that changed often in git history *and* are complex, where bugs tend to live. Their facades are worn toward the base.
 - **Data flow:** while a building is open, glowing dots run along its routes to the files it uses (fainter ones come in from the files that use it).
 
-The bundled city is **semver 7.7.3** (the version library npm uses; ISC licence) with one realistic one-line bug we introduced. Its **real** test suite was run with and without the bug: 8,827 assertions, 3 failing, then all passing. A second city is **Repo City's own source code**.
+The bundled city is **semver 7.7.3** (the version library npm uses; ISC licence) with one **real** bug from its history put back: upstream commit [`2471d75`](https://github.com/npm/node-semver/commit/2471d7543e2e63d9d95358e2405e7e1cde926c36) ("fix: x-range build metadata support", Sep 2025) added one line to `classes/range.js`; we removed it again. Its real test suite fails 20 assertions (`TypeError: Invalid comparator: >2.x+build`, with the real stack), and the crane installs the real upstream fix: 8,827 of 8,827 pass. A second city is **Repo City's own source code**.
 
 Track: Productivity · Division: New Experience · Competition: Meta VR Start Developer Competition 2026.
 
@@ -26,6 +26,8 @@ Track: Productivity · Division: New Experience · Competition: Meta VR Start De
 6. Poke **Show me the fix** on the table plaque, then **Run the tests**.
 7. Keep exploring: open any building and touch floors to read their code, or press **Next city**.
 - **Two-hand pinch** anywhere above the city to scale and turn it.
+- **Street level:** poke the plaque and the city grows past your table to a hazy horizon. Pinch empty space with one hand and drag to move through it; two-hand pinch to scale; **Back to the desk** returns.
+- **Pass the headset on:** the panel, plaques and opened building turn to face whoever sits at the table now (and after a recenter).
 - Every step also has a plaque on the table, so you can always continue by touch.
 
 ## Run it
@@ -38,19 +40,23 @@ npm run typecheck && npm run build
 On a Quest on the same network, open the `https://<your-ip>:8083` address that `npx @iwsdk/cli dev status` prints, and accept the local certificate. Quest Browser needs https.
 
 ### Your own repository
+You're vibecoding, waiting for your agent: put on the headset and your own repo is the city on your desk.
 ```bash
-node tools/repo-to-city/index.mjs --root ../my-repo --include src --out public/cities/mine.json
-# then open https://localhost:8083/?city=./cities/mine.json
+npm run city:repo -- /path/to/your/repo       # finds src/ (or lib/), runs your tests, writes public/cities/<name>.json
+# then open https://<this machine>:8083/?city=./cities/<name>.json
 ```
+It runs your tests here with Node's built-in runner (`node:test`, `.js`/`.mjs`/`.ts` under `test/`, `tests/`, `*.test.*`, `*.spec.*`). Each real failure is mapped through its stack to the building and floor (function) where it breaks, and the panel shows the real assertion or error and stack (paths relative to your repo). With no known fix, the guide sends you back to your editor or agent: rebuild the city after the fix. For other runners (jest, vitest, mocha), run them yourself and pass `--tests results.json`.
+
+The lower-level CLI: `node tools/repo-to-city/index.mjs --root ../my-repo --include src --out public/cities/mine.json`.
 `--history git` reads the repo's own git log (2 years, at most 2,000 commits) for scaffolding; `--history h.json` takes a precomputed `{ path: { commits, churn } }`. `--layout affinity` tries to put districts that import each other side by side, and keeps the plain size layout unless that cuts the coupling cost by at least 10% without stretching districts (the scores are in the city JSON's `stats.layout`).
 
 The CLI also bakes the city's light next to the JSON (KTX2 if KTX-Software's `ktx` is installed, else PNG; `--no-light` skips it). Add `--tests <results.json>` (format in `tools/repo-to-city/run-tests.mjs`) to set fires from your own test run. Your code stays on your machine: nothing is uploaded.
 
 ## Test
 ```bash
-npm run test:unit    # 50 Node tests: layout (incl. affinity), parser, entry point, git history + hotspot score, city contract, light bake, room placement (incl. Quest 3 downward table normals)
+npm run test:unit    # 51 Node tests: layout (incl. affinity), parser, entry point, your-repo (a generated repo end to end), git history + hotspot score, city contract, light bake, room placement (incl. Quest 3 downward table normals)
 npx @iwsdk/cli dev up --ai-mode agent --allow-browser-automation
-npm run test:xr      # the whole hands-only journey in the emulator (18 checks)
+npm run test:xr      # the whole hands-only journey in the emulator (22 checks, incl. a second viewer in another seat and street level)
 npm run test:xr -- --hand left --drag --jitter 5
 npm run test:xr:tour # same, with a screenshot at every first-of-its-kind moment (artifacts/)
 npm run city         # regenerate both cities (re-runs semver's real test suite, bugged and fixed) and bake their light
