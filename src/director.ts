@@ -18,6 +18,10 @@ import {
   BoxGeometry,
   AdditiveBlending,
   Points,
+  BackSide,
+  BufferAttribute,
+  CircleGeometry,
+  Color,
   type Material,
 } from '@iwsdk/core';
 import { sfx } from './audio.js';
@@ -320,6 +324,11 @@ export class RepoCityDirector extends createSystem({
     this.journeyDone = !this.failure;
     this.step = this.failure ? 'find-fire' : 'free';
     this.closeBuilding(true);
+    // a new city starts on the desk
+    this.big = false;
+    this.bigT = 1;
+    this.panHand = null;
+    this.manip.position.set(0, 0, 0);
     this.placeFire();
     this.city.shadowDirty = true;
     log(`city ${data.id} buildings=${data.buildings.length} fire=${this.fireIndex}`);
@@ -693,7 +702,7 @@ export class RepoCityDirector extends createSystem({
         break;
       case 'finished':
         this.guide(d.guide.done);
-        this.setPlaques([{ id: 'explore', text: 'Keep exploring' }, nextCityPlaque(this), { id: 'again', text: 'Start again' }]);
+        this.setPlaques([{ id: 'explore', text: 'Keep exploring' }, streetPlaque(this), nextCityPlaque(this)]);
         break;
       case 'free':
         if (this.entryTour(d)) {
@@ -701,7 +710,7 @@ export class RepoCityDirector extends createSystem({
           break;
         }
         this.guide(this.city.openIndex >= 0 ? 'Touch a floor to read its code. Pinch the roof to close.' : `${d.guide.intro} Pinch any roof to look inside.`);
-        this.setPlaques(this.city.openIndex >= 0 ? [{ id: 'close', text: 'Close the building' }, nextCityPlaque(this)] : [nextCityPlaque(this), { id: 'again', text: 'Start again' }]);
+        this.setPlaques(this.city.openIndex >= 0 ? [{ id: 'close', text: 'Close the building' }, nextCityPlaque(this)] : [streetPlaque(this), nextCityPlaque(this), { id: 'again', text: 'Start again' }]);
         break;
     }
   }
@@ -742,6 +751,9 @@ export class RepoCityDirector extends createSystem({
       case 'next-city':
         this.useCity(this.cityIndex + 1);
         this.startRise();
+        break;
+      case 'street':
+        this.setBig(!this.big);
         break;
       case 'again':
         this.useCity(this.cityIndex);
@@ -1140,6 +1152,7 @@ export class RepoCityDirector extends createSystem({
       if (this.entryT <= 0 && (this.step === 'find-fire' || this.step === 'free') && this.city.openIndex < 0) this.applyStep();
     }
     this.updateFacing(dt);
+    this.updateBig(dt);
     this.animateGuide(time, dt);
     this.perfLog(time);
     this.updateFloorCard();
@@ -1150,6 +1163,126 @@ export class RepoCityDirector extends createSystem({
   }
 
   private readonly qEnv = new Quaternion();
+
+  // ───────────────────────── street level: the city grows to the horizon
+  /**
+   * The city grows ~8x around a point ahead of the viewer, so you sit at the
+   * edge of its streets with buildings above eye level; a ground plain and a
+   * hazy sky (2 draws, no fog: fog would recompile every city shader) replace
+   * the passthrough beyond it. One-hand pinch on empty space drags the city
+   * (pan), two-hand pinch scales it (3-14x). "Back to the desk" returns.
+   */
+  private big = false;
+  get isBig(): boolean {
+    return this.big;
+  }
+  private bigK = 0; // 0 desk .. 1 street, animated
+  private readonly bigFromPos = new Vector3();
+  private readonly bigToPos = new Vector3();
+  private bigFromScale = 1;
+  private bigToScale = 1;
+  private bigT = 1;
+  private horizon: Group | null = null;
+  private panHand: HandState | null = null;
+  private readonly panLast = new Vector3();
+
+  private setBig(on: boolean): void {
+    if (on === this.big) return;
+    this.big = on;
+    if (this.city.openIndex >= 0) this.closeBuilding();
+    this.bigFromPos.copy(this.manip.position);
+    this.bigFromScale = this.userScale;
+    if (on) {
+      // ahead of the viewer (through the view frame): its near edge (1.84 m from its centre at 8x) stays past the plaques
+      this.bigToPos.set(0, 0, -2.3).applyAxisAngle(UP, this.faceYaw);
+      this.bigToScale = 8;
+      this.ensureHorizon();
+    } else {
+      this.bigToPos.set(0, 0, 0);
+      this.bigToScale = 1;
+    }
+    this.bigT = 0;
+    sfx.rise();
+    log(`big ${on ? 'on' : 'off'}`);
+    this.applyStep();
+  }
+
+  private updateBig(dt: number): void {
+    if (this.bigT < 1) {
+      this.bigT = Math.min(1, this.bigT + dt / 1.4);
+      const e = this.bigT * this.bigT * (3 - 2 * this.bigT);
+      this.manip.position.lerpVectors(this.bigFromPos, this.bigToPos, e);
+      this.userScale = this.bigFromScale + (this.bigToScale - this.bigFromScale) * e;
+      this.manip.scale.setScalar(this.userScale);
+      this.city.shadowDirty = true;
+    }
+    // the plinth sinks into the plain so the streets stay at table height (and the plaques above them)
+    if (this.big || this.bigT < 1) this.manip.position.y = -PLINTH_H * (this.userScale - 1) * Math.min(1, (this.userScale - 1) / 2);
+    else this.manip.position.y = 0;
+    this.bigK += ((this.big ? 1 : 0) - this.bigK) * Math.min(1, dt * 3);
+    if (this.horizon) {
+      this.horizon.visible = this.bigK > 0.01;
+      this.horizon.scale.setScalar(0.2 + 0.8 * this.bigK);
+    }
+  }
+
+  /** One-hand pinch on empty space drags the big city across the plain. True while panning. */
+  private updatePan(hand: HandState, hit: number): boolean {
+    if (!this.panHand && hand.pinchStarted && hit < 0) {
+      this.panHand = hand;
+      this.panLast.copy(hand.pinchPoint);
+      this.anchor.worldToLocal(this.panLast);
+      log('pan start');
+    }
+    if (this.panHand !== hand) return false;
+    if (!hand.pinching) {
+      this.panHand = null;
+      log(`pan end at=${JSON.stringify(this.manip.position.toArray().map((x) => +x.toFixed(2)))}`);
+      return true;
+    }
+    this.v.copy(hand.pinchPoint);
+    this.anchor.worldToLocal(this.v);
+    // a hand move of 10 cm moves the city ~40 cm: streets go by at a seated reach
+    this.manip.position.x += (this.v.x - this.panLast.x) * 4;
+    this.manip.position.z += (this.v.z - this.panLast.z) * 4;
+    this.panLast.copy(this.v);
+    return true;
+  }
+
+  private ensureHorizon(): void {
+    if (this.horizon) return;
+    const g = new Group();
+    g.name = 'horizon';
+    // the plain: a disc a little under the table plane, warm near the city, fading into the haze
+    const ground = new Mesh(new CircleGeometry(60, 48).rotateX(-Math.PI / 2), new MeshBasicMaterial({ vertexColors: true }));
+    const near = new Color('#8f8a7c'), far = new Color('#c9d3dc');
+    const gp = ground.geometry.getAttribute('position');
+    const gc = new Float32Array(gp.count * 3);
+    for (let i = 0; i < gp.count; i++) {
+      const r = Math.min(1, Math.hypot(gp.getX(i), gp.getZ(i)) / 60);
+      this.cEnv.copy(near).lerp(far, Math.pow(r, 0.6));
+      gc.set([this.cEnv.r, this.cEnv.g, this.cEnv.b], i * 3);
+    }
+    ground.geometry.setAttribute('color', new BufferAttribute(gc, 3));
+    ground.position.y = -0.004;
+    // the sky: haze at the horizon to a clear blue overhead
+    const sky = new Mesh(new SphereGeometry(70, 32, 12), new MeshBasicMaterial({ vertexColors: true, side: BackSide, depthWrite: false }));
+    const sp = sky.geometry.getAttribute('position');
+    const sc = new Float32Array(sp.count * 3);
+    const zen = new Color('#5f8fc4');
+    for (let i = 0; i < sp.count; i++) {
+      const h = Math.max(0, sp.getY(i) / 70);
+      this.cEnv.copy(far).lerp(zen, Math.pow(h, 0.5));
+      sc.set([this.cEnv.r, this.cEnv.g, this.cEnv.b], i * 3);
+    }
+    sky.geometry.setAttribute('color', new BufferAttribute(sc, 3));
+    sky.renderOrder = -10;
+    g.add(sky, ground);
+    g.visible = false;
+    this.anchor.add(g);
+    this.horizon = g;
+  }
+  private readonly cEnv = new Color();
 
   // ───────────────────────── facing the current viewer
   /**
@@ -1393,7 +1526,7 @@ export class RepoCityDirector extends createSystem({
     if (this.twoHand) {
       const dist = H[0].pinchPoint.distanceTo(H[1].pinchPoint);
       const ang = Math.atan2(H[1].pinchPoint.z - H[0].pinchPoint.z, H[1].pinchPoint.x - H[0].pinchPoint.x);
-      this.userScale = Math.min(2.2, Math.max(0.6, this.twoStartScale * (dist / Math.max(0.03, this.twoStartDist))));
+      this.userScale = Math.min(this.big ? 14 : 2.2, Math.max(this.big ? 3 : 0.6, this.twoStartScale * (dist / Math.max(0.03, this.twoStartDist))));
       this.userYaw = this.twoStartYaw - (ang - this.twoStartAngle);
       this.manip.scale.setScalar(this.userScale);
       this.manip.rotation.y = this.userYaw;
@@ -1414,7 +1547,9 @@ export class RepoCityDirector extends createSystem({
         best = H[k];
       }
     }
-    const hand = this.dragHand ?? best;
+    // at street level the city is metres away, so "nearest the city" means little: the hand that pinches leads
+    const pincher = this.big ? (this.panHand ?? (H[0].tracked && H[0].pinchStarted ? H[0] : H[1].tracked && H[1].pinchStarted ? H[1] : null)) : null;
+    const hand = this.dragHand ?? pincher ?? best;
     this.activeHand = hand;
     const k = hand === H[0] ? 0 : 1;
     const tip = this.tipLocal[k];
@@ -1473,6 +1608,7 @@ export class RepoCityDirector extends createSystem({
     const hp = this.city.buildingAt(pin.x, pin.y, pin.z, 0.04);
     const hov = hp >= 0 ? hp : hb;
     this.setHover(hov === open && this.city.open > 0.3 ? -1 : hov);
+    if (this.big && this.updatePan(hand, hp)) return;
     if (hand.pinchStarted && hp >= 0 && hp !== open) {
       if (open >= 0) this.city.setOpen(-1);
       // the building comes out on the side of the hand that took it
@@ -1625,6 +1761,10 @@ export class RepoCityDirector extends createSystem({
     }
     this.keys.clear();
   }
+}
+
+function streetPlaque(d: RepoCityDirector): PlaqueSpec {
+  return d.isBig ? { id: 'street', text: 'Back to the desk' } : { id: 'street', text: 'Street level', accent: UI.blue };
 }
 
 function nextCityPlaque(d: RepoCityDirector): PlaqueSpec {

@@ -169,7 +169,31 @@ check('panel and plaques face a viewer in another seat',
       panel[0] < cx - 0.15 and all(x > cx + 0.15 for x in px), f'panel x={panel[0]:.2f} plaques x={[round(x, 2) for x in px]} city x={cx:.2f}')
 tour('second-seat')
 
-# 7. Next city, poked from the new seat
+# 7. Street level: the city grows to the horizon; pinch-drag pans it; back to the desk
+poke_down(plaques['street'])
+check('street level on', bool(wait_for(r'big on', 5)))
+m = wait_for(r'plaques (\S+) layout=', 5)
+plaques = field(m, 'layout')
+time.sleep(2.0)
+tour('street-level')
+hand_at = (cx + 0.45, cy + 0.14, cz + 0.02)
+tip_to(hand_at, 0.3, HAND)
+cli('xr', 'set-device-state', payload={'state': {'hands': {args.hand: {'pinchValue': 1}}}}, check=False)
+time.sleep(0.3)
+tip_to((hand_at[0] + 0.1, hand_at[1], hand_at[2]), 0.6, HAND)
+time.sleep(0.2)
+cli('xr', 'set-device-state', payload={'state': {'hands': {args.hand: {'pinchValue': 0}}}}, check=False)
+m = wait_for(r'pan end at=(\[[^\]]*\])', 5)
+check('one-hand pinch-drag pans the big city', bool(m), m.group(0) if m else '')
+park(HAND)
+time.sleep(0.6)
+poke_down(plaques['street'])
+check('back to the desk', bool(wait_for(r'big off', 5)))
+m = wait_for(r'plaques (\S+) layout=', 5)
+plaques = field(m, 'layout')
+time.sleep(1.6)
+
+# 8. Next city, poked from the new seat
 plaques = field(wait_for(r'plaques (\S+) layout=', 6), 'layout') if 'next-city' not in plaques else plaques
 poke_down(plaques['next-city'])
 mf = wait_for(r'flow (\d+)', 8)
