@@ -19,7 +19,8 @@ Repo City turns a real repository into a miniature architectural model on your t
 - **Files are buildings** (footprint from lines of code, height from complexity), **folders are districts**, and **imports are lit routes** between buildings.
 - **A failing test is a fire.** Pinch the burning roof and lift: the building slides out onto your desk as a stack of lit floors, one per function, and one floor is smouldering.
 - **Touch that floor** and the panel shows the real failing check: the assertion, what it expected and what it got.
-- Ask for the fix, **run the tests**, and a green wave sweeps the city until the fire goes out in a burst of steam.
+- Ask for the fix, **run the tests**: a tower crane lifts the smouldering floor out and lowers in the fixed one, then a green wave sweeps the city and every check passes.
+- The **town hall** (the package's entry file) is where the tour starts. **Scaffolding** marks hot spots, files that change often in git history and are complex. While a building is open, **glowing dots flow** along its imports.
 - A small **lantern guide** explains every step, out loud and in captions, and flies over to point at what to do next.
 - **Two-hand pinch** scales and turns the city. A second city is Repo City's own source code.
 
@@ -76,7 +77,8 @@ Hook first; real room visible; real code readable.
 | 0:22–0:34 | MR, hero close-up | Pinch the burning roof and lift; the building slides out as lit floors; one smoulders | "Lift the roof. Every floor is a function." |
 | 0:34–0:42 | MR, fingertip | Touch the smouldering floor; expected `true`, got `false` | "Touch it, and it tells you exactly what broke." |
 | 0:42–0:50 | MR, table plaques | Poke "Show me the fix": the one-line diff | "One line." |
-| 0:50–1:00 | MR, wide | Poke "Run the tests": green wave, steam, "All tests pass" | "Run the tests, and the fire goes out." |
+| 0:50–0:55 | MR, close on the stack | Poke "Run the tests": the crane lifts the burning floor away (steam) and lowers the fixed one, clunk | "Swap in the fix…" |
+| 0:55–1:00 | MR, wide | Green wave, "All tests pass"; scaffolding on the hot spots, the domed town hall | "…and the fire goes out." |
 | 1:00–1:08 | MR, two hands | Two-hand pinch scales the city; Next city: Repo City's own code rises | "Any repo. Even this one. Repo City." |
 
 **Capture:** `metavr capture video start --width 1920 --height 1080` (or the Quest camera app), slow head moves, plain desk, no logos or private code in view. If no headset footage is possible, the rules accept emulator footage (the HOAM recorder in `projects/hands-of-a-master/tools/trailer/`).

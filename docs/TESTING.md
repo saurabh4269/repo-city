@@ -79,6 +79,21 @@ Emulator: IWER metaQuest3, 800×800 per eye. In IWER every eye is drawn separate
 
 The 6 extra draw calls (3 on Quest) are new: the district plates, which had never rendered (an `InstancedMesh` frustum-culled by bounds computed while its count was 0), and soft shadows under the plaques and the opened building. The canvas UI textures (panel 7.9 MB with mipmaps, labels, plaques) stay as they are: they are redrawn at runtime, so they cannot be pre-compressed.
 
+## City-life features (18 Nov 2026, evening)
+Town hall, fix crane, weathering, data flow and the affinity layout (`docs/SPEC-city-life.md`), one commit each, each with typecheck, unit tests and both-hand e2e green before the next.
+
+| | before (`63e0243`) | after (`68764f3`) |
+|---|---|---|
+| Unit tests | 33 | 50 |
+| Emulator journey checks | 13 | 18 (entry tour, crane start/done, flow on open and on close) |
+| Draw calls, city (emulator, both eyes) | 52 | 56: the town-hall dome and the scaffolding |
+| Draw calls, building open | 48 | 52: plus the flow dots; the crane adds one more only during its 2.4 s |
+| Triangles, city / open | 29,920 / 27,172 | 34,952 / 31,212 |
+
+`python3 tools/e2e/stats.py citylife` → `artifacts/stats-citylife.json`. On Quest (multiview) that's +2 calls when idle, within the spec's +4. Frame rate still has to be measured on the headset (`bash tools/headset-perf.sh citylife`).
+
+Affinity gate on the shipped cities: semver coupling cost 49.60 → 45.32 (−8.6%, under the 10% bar), Repo City 9.47 → 10.02. Both keep the size layout, so their buildings, bake and fire position didn't change.
+
 ### Anti-aliasing and foveation
 - **The context asks for MSAA.** IWSDK creates the renderer with `antialias: true`, and `stats().contextAntialias` is `true`.
 - **Emulator:** three.js takes the `XRWebGLLayer` path with `antialias: true`, and `stats().xr` reports `layerAntialias: true`.
@@ -116,6 +131,7 @@ Not yet run on a device. Each item needs a real headset:
 - [ ] **Sound:** rise, lift, crackle, alarm, test ticks, steam and the chord are audible and not harsh.
 - [ ] **System menu:** pause and resume (the logic freezes while the menu is up).
 - [ ] **Production URL** logged out: both cities load; fonts load or fall back cleanly.
+- [ ] **City-life features:** 72 fps during the crane (fire + crane + open stack) and with flow dots running; the crane reads as a crane at arm's length and doesn't hide the floor it lifts; the flow dots are visible but not noisy; scaffolding and the town-hall dome read as such; the ratchet and clunk aren't harsh.
 - [ ] **A new player, without coaching:** note where they hesitate.
 
 ## How to run a preset on the headset

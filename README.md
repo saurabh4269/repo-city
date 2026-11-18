@@ -8,7 +8,10 @@ Mixed reality for Meta Quest 3/3S in the browser (WebXR, IWSDK 1.1.0). Hands onl
 - **Folders are districts**, each with its own tint. **Imports are lit routes** that arc between buildings when you open one.
 - **Functions are floors.** Lift a roof and the building slides out onto your desk as a stack of lit floors.
 - **A failing test is a fire.** Touch the smouldering floor to read the failing check: the assertion, what it expected, what it got.
-- **Fix it and run the tests.** A green wave sweeps the city, the fire goes out in a burst of steam, and every check passes.
+- **Fix it and run the tests.** A tower crane lifts out the smouldering floor and lowers in the fixed one, a green wave sweeps the city, and every check passes.
+- **The town hall** is the package's entry file (from `package.json` exports/main, else `index.*`): a domed civic building the guide shows you first.
+- **Scaffolding marks hot spots:** files that changed often in git history *and* are complex, where bugs tend to live. Their facades are worn toward the base.
+- **Data flow:** while a building is open, glowing dots run along its routes to the files it uses (fainter ones come in from the files that use it).
 
 The bundled city is **semver 7.7.3** (the version library npm uses; ISC licence) with one realistic one-line bug we introduced. Its **real** test suite was run with and without the bug: 8,827 assertions, 3 failing, then all passing. A second city is **Repo City's own source code**.
 
@@ -39,13 +42,15 @@ On a Quest on the same network, open the `https://<your-ip>:8083` address that `
 node tools/repo-to-city/index.mjs --root ../my-repo --include src --out public/cities/mine.json
 # then open https://localhost:8083/?city=./cities/mine.json
 ```
+`--history git` reads the repo's own git log (2 years, at most 2,000 commits) for scaffolding; `--history h.json` takes a precomputed `{ path: { commits, churn } }`. `--layout affinity` tries to put districts that import each other side by side, and keeps the plain size layout unless that cuts the coupling cost by at least 10% without stretching districts (the scores are in the city JSON's `stats.layout`).
+
 The CLI also bakes the city's light next to the JSON (KTX2 if KTX-Software's `ktx` is installed, else PNG; `--no-light` skips it). Add `--tests <results.json>` (format in `tools/repo-to-city/run-tests.mjs`) to set fires from your own test run. Your code stays on your machine: nothing is uploaded.
 
 ## Test
 ```bash
-npm run test:unit    # 33 Node tests: layout, parser, city contract, light bake, room placement (incl. Quest 3 downward table normals)
+npm run test:unit    # 50 Node tests: layout (incl. affinity), parser, entry point, git history + hotspot score, city contract, light bake, room placement (incl. Quest 3 downward table normals)
 npx @iwsdk/cli dev up --ai-mode agent --allow-browser-automation
-npm run test:xr      # the whole hands-only journey in the emulator (13 checks)
+npm run test:xr      # the whole hands-only journey in the emulator (18 checks)
 npm run test:xr -- --hand left --drag --jitter 5
 npm run test:xr:tour # same, with a screenshot at every first-of-its-kind moment (artifacts/)
 npm run city         # regenerate both cities (re-runs semver's real test suite, bugged and fixed) and bake their light
