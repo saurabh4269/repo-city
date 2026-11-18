@@ -32,6 +32,7 @@ import type { Building, CityData } from './types.js';
 import { createBuildingMaterial, patchGroundMaterial, type BuildingUniforms } from './building-material.js';
 import { cityDetails, landmarkSize } from './details.js';
 import { MAX_LIT_BUILDINGS } from './light-layout.js';
+import { Flow, type FlowRoute } from '../fx/flow.js';
 
 /** Width of the city square on the table, metres (city units × this). */
 export const CITY_SIZE = 0.46;
@@ -109,6 +110,9 @@ export class CityView {
   private fFail: InstancedBufferAttribute;
   readonly roof: Mesh;
   private routes: Mesh;
+  /** Dots running along the open building's routes. */
+  readonly flow = new Flow(CITY_SIZE);
+  private flowRoutes: FlowRoute[] = [];
   private routeMat: ShaderMaterial;
 
   /** Per building: rise progress 0..1 (the city growing out of the table). */
@@ -311,6 +315,7 @@ export class CityView {
     this.routes.frustumCulled = false;
     this.routes.renderOrder = 6;
     this.units.add(this.routes);
+    this.units.add(this.flow.points);
   }
 
   setData(data: CityData): void {
@@ -422,6 +427,7 @@ export class CityView {
   update(dt: number, time: number): void {
     this.uniforms.uTime.value = time;
     this.routeMat.uniforms.uTime.value = time;
+    this.flow.update(time);
     const data = this.data;
     if (!data) return;
     let moved = false;
@@ -714,13 +720,13 @@ export class CityView {
     return this.data ? this.data.buildings.findIndex((b) => b.id === id) : -1;
   }
 
-  /** Lit routes from building i to the files it imports (and to its importers). */
-  setRoutes(i: number): void {
+  /** Lit routes from building i to the files it imports (and to its importers), with flow dots. Returns the number of routes with dots. */
+  setRoutes(i: number): number {
     const data = this.data;
     const geo = this.routes.geometry;
     if (!data || i < 0) {
       this.routeMat.uniforms.uOpacity.value = 0;
-      return;
+      return this.flow.set([]);
     }
     const b = data.buildings[i];
     const targets: Building[] = [];
@@ -734,6 +740,14 @@ export class CityView {
         if (t && t !== b && !targets.includes(t)) targets.push(t);
       }
     }
+    const nOut = targets.filter((t) => b.imports.includes(t.id)).length;
+    const tintOf = (x: Building) => DISTRICT_TINTS[(data.districts.find((d) => d.id === x.district)?.color ?? 0) % DISTRICT_TINTS.length];
+    this.flowRoutes.length = 0;
+    targets.slice(0, 24).forEach((t, k) => {
+      const len = Math.hypot(t.x - b.x, t.z - b.z);
+      const out = k < nOut;
+      this.flowRoutes.push({ ax: b.x, az: b.z, bx: t.x, bz: t.z, peak: 0.06 + len * 0.35, out, color: tintOf(out ? t : b) });
+    });
     const SEG = 20;
     const pos: number[] = [];
     const tt: number[] = [];
@@ -765,6 +779,7 @@ export class CityView {
     geo.setAttribute('aSide', new BufferAttribute(new Float32Array(side), 1));
     geo.setIndex(idx);
     this.routeMat.uniforms.uOpacity.value = targets.length ? 0.8 : 0;
+    return this.flow.set(this.flowRoutes);
   }
 
   setRouteOpacity(v: number): void {

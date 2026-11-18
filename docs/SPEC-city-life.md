@@ -92,6 +92,8 @@ Ground rules for all five:
 
 **Panel legend:** *"Dots run to the files it uses."*
 
+*As built:* the dots are about twice a spark's size, not 4 px: at 4 px they disappeared against the bright route arcs in the emulator. Routes are sine arcs (the code's existing shape), not quadratic Béziers, so the shader uses the same sine. The legend sits in the code box's bottom-right corner.
+
 **Tests:** check the log has `flow N` with the route count on open, and 0 on close. One tour screenshot.
 
 ---

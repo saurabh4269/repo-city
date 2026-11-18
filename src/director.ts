@@ -303,6 +303,7 @@ export class RepoCityDirector extends createSystem({
     this.data = data;
     this.panel.city = data;
     this.city.setData(data);
+    log(`flow ${this.city.setRoutes(-1)}`);
     this.loadLight(data);
     this.failure = data.run.failures[0] ?? null;
     this.fireIndex = this.failure ? this.city.indexOf(this.failure.building) : -1;
@@ -703,7 +704,7 @@ export class RepoCityDirector extends createSystem({
     if (i < 0) return;
     if (this.city.openIndex !== i) {
       this.city.setOpen(i);
-      this.city.setRoutes(i);
+      log(`flow ${this.city.setRoutes(i)}`);
       this.tipFloorPrev = -2;
     }
     this.openTarget = 1;
@@ -731,7 +732,7 @@ export class RepoCityDirector extends createSystem({
     if (instant) {
       this.city.setOpen(-1);
     } else sfx.close();
-    this.city.setRoutes(-1);
+    log(`flow ${this.city.setRoutes(-1)}`);
     log('close');
     // the journey falls back a step if the building closes mid-way
     if (!this.journeyDone && this.step !== 'find-fire') this.step = 'find-fire';
@@ -1055,6 +1056,7 @@ export class RepoCityDirector extends createSystem({
     const vh = this.viewportHeight();
     this.fire.setViewport(vh);
     this.sparks.setViewport(vh);
+    this.city.flow.setViewport(vh);
     this.sparks.update(dt);
     this.fire.update(dt);
     // the fire light flickers
@@ -1331,7 +1333,7 @@ export class RepoCityDirector extends createSystem({
       // the building comes out on the side of the hand that took it
       this.city.inspectX = hand.side === 'left' ? -0.66 : 0.66;
       this.city.setOpen(hp);
-      this.city.setRoutes(hp);
+      log(`flow ${this.city.setRoutes(hp)}`);
       this.beginDrag(hand, 'lift', now);
       return;
     }

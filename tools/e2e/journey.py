@@ -95,7 +95,9 @@ if args.drag:
 else:
     tip_to((fire[0], fire[1] + 0.01, fire[2]), 0.25, HAND)
     select(HAND)
+mf = wait_for(r'flow (\d+)', 8)
 m = wait_for(r'open (\S+)', 8)
+check('flow dots run along its routes', int(mf.group(1)) > 0, mf.group(0))
 check('pinching the roof opens the burning building', m.group(1) == t['fireId'], m.group(0))
 tip_to((fire[0] + 0.15, fire[1] + 0.12, fire[2] + 0.2), 0.4, HAND)  # out of the way
 time.sleep(1.0)
@@ -158,6 +160,8 @@ park('hand-left')
 # 6. Next city
 plaques = field(wait_for(r'plaques (\S+) layout=', 6), 'layout') if 'next-city' not in plaques else plaques
 poke_down(plaques['next-city'])
+mf = wait_for(r'flow (\d+)', 8)
+check('flow dots stop when the building closes', mf.group(1) == '0', mf.group(0))
 m = wait_for(r'city (\S+) buildings=(\d+)', 8)
 check('next city loads', m.group(1) == 'repo-city', m.group(0))
 time.sleep(3)

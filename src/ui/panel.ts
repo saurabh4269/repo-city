@@ -179,7 +179,17 @@ function drawBuilding(ctx: CanvasRenderingContext2D, a: Area, b: Building, floor
   const first = first0 + from;
   const hi = new Map<number, string>();
   if (f.failing && f.bugLine) hi.set(f.bugLine - first, 'rgba(255,106,61,0.30)');
-  drawCode(ctx, lines, a.x + 22, y + 22, a.w - 44, h - 44, { firstLine: first, maxSize: 46, hi });
+  const legend = b.imports.length > 0 || !!c?.streets.some((s) => s.to === b.id);
+  drawCode(ctx, lines, a.x + 22, y + 22, a.w - 44, h - 44 - (legend ? 30 : 0), { firstLine: first, maxSize: 46, hi });
+  if (legend) {
+    ctx.font = `600 26px ${FONT_UI}`;
+    ctx.fillStyle = '#8fd3ff';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('Dots run to the files it uses', a.x + a.w - 22, y + h - 16);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+  }
 }
 
 function drawFire(ctx: CanvasRenderingContext2D, a: Area, b: Building, f: Failure, fix?: Fix): void {
