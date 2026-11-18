@@ -59,7 +59,11 @@ function resolveImport (fromRel, spec, known) {
 /** test/X → X (exact path, or same stem with another extension). */
 function testFileFor (rel, testFiles) {
   const stem = rel.replace(SRC_EXT, '')
-  return testFiles.find((t) => t === `test/${rel}`) || testFiles.find((t) => t.replace(SRC_EXT, '') === `test/${stem}`) || null
+  // also the usual conventions: test/**/name.test.js, name.spec.ts next to it, __tests__/name.js
+  const base = path.posix.basename(stem)
+  const nameOf = (t) => path.posix.basename(t).replace(SRC_EXT, '').replace(/\.(test|spec)$/, '')
+  return testFiles.find((t) => t === `test/${rel}`) || testFiles.find((t) => t.replace(SRC_EXT, '') === `test/${stem}`) ||
+    testFiles.find((t) => nameOf(t) === base && /(^|\/)(test|tests|__tests__)\/|\.(test|spec)\./.test(t)) || null
 }
 
 function toRun (r, failures) {
@@ -110,11 +114,23 @@ export function buildCity (args) {
   const districtIds = [...new Set(files.map((f) => districtOf(f.rel)))].sort((a, b) => (a === rootDistrictId) - (b === rootDistrictId) || a.localeCompare(b))
   const testFiles = Object.keys(results.files || {})
 
+  // ---- where it breaks: the fix's line, or (no fix known) the first stack frame of a failure inside the city's source
+  let bugSite = fixSpec ? { file: fixSpec.file, line: fixSpec.line } : null
+  if (!bugSite) {
+    for (const f of results.failures || []) {
+      for (const m of String(f.stack || f.actual || '').matchAll(/([\w@./-]+\.(?:c?js|mjs|tsx?|mts|cts)):(\d+)(?::\d+)?/g)) {
+        const id = known.has(m[1]) ? m[1] : [...known].find((k) => m[1].endsWith('/' + k))
+        if (id) { bugSite = { file: id, line: +m[2] }; break }
+      }
+      if (bugSite) break
+    }
+  }
+
   // ---- buildings
   const buildings = files.map((f) => {
     let fns = f.functions.map((fn) => ({ ...fn }))
-    const failingFn = fixSpec && fixSpec.file === f.rel
-      ? fns.filter((fn) => fn.startLine <= fixSpec.line && fixSpec.line <= fn.endLine).sort((a, b) => a.lines - b.lines)[0]
+    const failingFn = bugSite && bugSite.file === f.rel
+      ? fns.filter((fn) => fn.startLine <= bugSite.line && bugSite.line <= fn.endLine).sort((a, b) => a.lines - b.lines)[0]
       : null
     if (fns.length > maxFloors) {
       const keep = new Set([...fns].sort((a, b) => b.lines - a.lines).slice(0, maxFloors))
@@ -147,10 +163,10 @@ export function buildCity (args) {
         }
         if (failingFn && fn.name === failingFn.name) {
           out.failing = true
-          const ex = bugExcerpt(f.text, fn.startLine, fn.endLine, fixSpec.line)
+          const ex = bugExcerpt(f.text, fn.startLine, fn.endLine, bugSite.line)
           out.code = ex.code
           if (ex.codeStart && ex.codeStart !== fn.startLine) out.codeStart = ex.codeStart
-          out.bugLine = fixSpec.line
+          out.bugLine = bugSite.line
         }
         return out
       }),
@@ -197,7 +213,7 @@ export function buildCity (args) {
   for (const b of buildings) for (const to of b.imports) streets.push({ from: b.id, to })
 
   // ---- failures
-  const failingBuilding = fixSpec ? byId.get(fixSpec.file) : null
+  const failingBuilding = bugSite ? byId.get(bugSite.file) : null
   const failingFnName = failingBuilding?.functions.find((fn) => fn.failing)?.name
   const mapFailure = (f) => {
     const src = buildings.find((b) => b._testFile === f.testFile)

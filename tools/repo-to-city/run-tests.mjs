@@ -32,7 +32,7 @@ export function parseArgs (argv) {
       const k = a.slice(2)
       const v = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true
       out[k] = v
-    }
+    } else (out._ ||= []).push(a)
   }
   return out
 }

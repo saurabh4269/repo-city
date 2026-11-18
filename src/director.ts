@@ -66,6 +66,8 @@ function log(event: string): void {
 const PANEL_POS = new Vector3(0, 0.27, -0.3);
 const PANEL_TILT = -0.16;
 const UP = new Vector3(0, 1, 0);
+/** Dev: the query the emulator's managed browser dropped (tools/goto.mjs puts it in sessionStorage). */
+let devQuery = '';
 const PLAQUE_Z = CITY_SIZE / 2 + 0.06;
 
 export class RepoCityDirector extends createSystem({
@@ -269,7 +271,7 @@ export class RepoCityDirector extends createSystem({
       }
     }
     // "Your own repo": ?city=<url of a city.json made by tools/repo-to-city> goes first.
-    const own = new URLSearchParams(location.search).get('city');
+    const own = new URLSearchParams(location.search || devQuery).get('city');
     if (own) {
       try {
         const r = await fetch(own);
@@ -536,6 +538,7 @@ export class RepoCityDirector extends createSystem({
       try {
         q = q || sessionStorage.getItem('repo-city-preset') || '';
         sessionStorage.removeItem('repo-city-preset');
+        devQuery = q; // ?city= in the emulator comes the same way
       } catch {
         /* storage blocked */
       }
@@ -674,6 +677,12 @@ export class RepoCityDirector extends createSystem({
         this.setPlaques([{ id: 'touch-floor', text: 'Find the bug', accent: UI.fire }, { id: 'close', text: 'Close the building' }]);
         break;
       case 'read-failure':
+        if (!d.fix) {
+          // your own repo: the failure is real and there's no known fix yet
+          this.guide('This is the real failure from your test run. Fix it in your editor (or ask your agent), then rebuild the city.');
+          this.setPlaques([{ id: 'close', text: 'Close the building' }, nextCityPlaque(this)]);
+          break;
+        }
         this.guide('This check fails. Read what it expected and what it got. Then ask me for the fix.');
         this.setPlaques([{ id: 'see-fix', text: 'Show me the fix', accent: UI.green }, { id: 'close', text: 'Close the building' }]);
         break;
@@ -764,6 +773,11 @@ export class RepoCityDirector extends createSystem({
     const failing = b.functions.findIndex((f) => f.failing);
     this.panelMode = { kind: 'building', b, floor: failing >= 0 && i === this.fireIndex ? -1 : b.functions.length - 1 };
     if (i === this.fireIndex && this.step === 'find-fire') this.step = 'touch-floor';
+    // your own repo, when the stack never reached your source: no floor is known, so show the failure right away
+    if (i === this.fireIndex && this.step === 'touch-floor' && failing < 0 && this.failure) {
+      this.panelMode = { kind: 'fire', b, f: this.failure, fix: this.data!.fix };
+      this.step = 'read-failure';
+    }
     if (this.step === 'free' || this.journeyDone) {
       this.guide(`${b.name}: ${b.summary}`, false);
       this.setPlaques([{ id: 'close', text: 'Close the building' }, this.districtPlaque(b), nextCityPlaque(this)]);
@@ -1032,7 +1046,8 @@ export class RepoCityDirector extends createSystem({
       return;
     }
     if (this.city.openIndex === i && this.city.open > 0.05) {
-      const f = b.functions.findIndex((x) => x.failing);
+      const ff = b.functions.findIndex((x) => x.failing);
+      const f = ff >= 0 ? ff : Math.max(0, this.city.floorCount - 1); // no known floor: the top of the stack
       const o = f * 6;
       const bx = this.city.floorBoxes;
       this.fire.origin.set(bx[o], bx[o + 1] + bx[o + 4], bx[o + 2] + bx[o + 5] * 0.6);
