@@ -53,6 +53,10 @@ export function validateCity (c) {
     need(dIds.has(b.district), `${w}.district unknown`)
     for (const k of ['lines', 'complexity', 'x', 'z', 'w', 'd', 'h']) num(b[k], `${w}.${k}`)
     need(b.h > 0 && b.h <= 0.3601, `${w}.h out of range`)
+    if (b.history) {
+      for (const k of ['commits', 'churn', 'hot']) num(b.history[k], `${w}.history.${k}`)
+      need(b.history.hot >= 0 && b.history.hot <= 1, `${w}.history.hot out of 0..1`)
+    }
     need(Array.isArray(b.functions) && b.functions.length >= 1, `${w}: no floors`)
     for (const fn of b.functions || []) {
       const fw = `${w} fn ${fn.name}`

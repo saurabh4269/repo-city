@@ -23,6 +23,7 @@ import { parseSource, excerpt, bugExcerpt } from './parser.mjs'
 import { layoutCity } from './layout.mjs'
 import { parseArgs } from './run-tests.mjs'
 import { resolveEntry } from './entry.mjs'
+import { gitHistory, hotspot } from './history.mjs'
 
 const SRC_EXT = /\.(c?js|mjs|ts|tsx|jsx|mts|cts)$/
 const clip = (s, n) => {
@@ -159,6 +160,20 @@ export function buildCity (args) {
     }
   })
   const byId = new Map(buildings.map((b) => [b.id, b]))
+
+  // ---- history (scaffolding on hot spots): an object, a JSON file, or 'git' to read the root's own log
+  let hist = null
+  if (args.history && typeof args.history === 'object') hist = args.history
+  else if (args.history === 'git') {
+    try { hist = gitHistory({ dir: root }) } catch (e) { console.warn(`history: ${e.message.split('\n')[0]}`) }
+  } else if (args.history) hist = readJson(args.history)
+  if (hist) {
+    for (const b of buildings) {
+      const h = hist[b.id]
+      b.history = { commits: h?.commits ?? 0, churn: h?.churn ?? 0, hot: 0 }
+    }
+    hotspot(buildings).forEach((hot, i) => { buildings[i].history.hot = hot })
+  }
 
   // ---- layout
   const layout = layoutCity(districtIds.map((did) => ({ id: did, buildings: buildings.filter((b) => b.district === did) })), args.layout || {})

@@ -41,6 +41,10 @@ export const PLINTH_H = 0.018;
 const MAX_BUILDINGS = 96;
 export const MAX_FLOORS = 24;
 const FIXED_GREEN = new Color('#5fe39a');
+/** Hotspot score from which a building gets scaffolding (about the top 15%). */
+export const HOT_SCAFFOLD = 0.6;
+const MAX_SCAFFOLD = 48;
+const Y_AXIS = new Vector3(0, 1, 0);
 
 /** Muted model-railway tints, one per district. */
 export const DISTRICT_TINTS_HEX = ['#8fb98a', '#e2c27f', '#8fa9cc', '#d98f74', '#ad9bd6', '#7fc0b8'];
@@ -73,6 +77,10 @@ export class CityView {
   private plinth: Mesh;
   /** Rooftop plant (vents, water tanks) and model trees: one instanced draw each. */
   private roofBits: InstancedMesh;
+  /** Scaffolding on hot spots: one instance per scaffolded face (building index, face 0 = front, 1 = outer side). */
+  private scaffold: InstancedMesh;
+  private scaffoldOf: number[] = [];
+  private aHot: InstancedBufferAttribute;
   private roofBitOf: Int16Array = new Int16Array(0);
   private roofBitBox: Float32Array = new Float32Array(0);
   private trees: InstancedMesh;
@@ -213,7 +221,9 @@ export class CityView {
     this.aRoof = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS * 3).fill(0.9), 3);
     this.aMat = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS).fill(0.6), 1);
     this.aTile = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS).fill(-1), 1);
+    this.aHot = new InstancedBufferAttribute(new Float32Array(MAX_BUILDINGS), 1);
     const bGeo = box.clone();
+    bGeo.setAttribute('aHot', this.aHot);
     bGeo.setAttribute('aRoof', this.aRoof);
     bGeo.setAttribute('aMat', this.aMat);
     bGeo.setAttribute('aTile', this.aTile);
@@ -225,6 +235,12 @@ export class CityView {
     this.buildingMesh.name = 'city-buildings';
     this.buildingMesh.frustumCulled = false;
     this.units.add(this.buildingMesh);
+
+    this.scaffold = new InstancedMesh(makeScaffoldGeometry(), new MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.15 }), MAX_SCAFFOLD);
+    this.scaffold.count = 0;
+    this.scaffold.frustumCulled = false;
+    this.scaffold.name = 'city-scaffolding';
+    this.units.add(this.scaffold);
 
     this.landmark = new Mesh(makeLandmarkGeometry(), new MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.25 }));
     this.landmark.name = 'city-landmark';
@@ -255,6 +271,7 @@ export class CityView {
     // the floors are not in the bake (they move): tile -1
     fGeo.setAttribute('aTile', new InstancedBufferAttribute(new Float32Array(MAX_FLOORS).fill(-1), 1));
     fGeo.setAttribute('aInfo', this.fInfo);
+    fGeo.setAttribute('aHot', new InstancedBufferAttribute(new Float32Array(MAX_FLOORS), 1));
     fGeo.setAttribute('aFail', this.fFail);
     this.floorMesh = new InstancedMesh(fGeo, material, MAX_FLOORS);
     this.floorMesh.count = 0;
@@ -321,6 +338,7 @@ export class CityView {
       this.aRoof.setXYZ(i, this.c.r, this.c.g, this.c.b);
       this.aMat.setX(i, DISTRICT_ROOF_ROUGH[(data.districts[di]?.color ?? 0) % DISTRICT_ROOF_ROUGH.length]);
       this.aTile.setX(i, i < MAX_LIT_BUILDINGS ? i : -1);
+      this.aHot.setX(i, b.history?.hot ?? 0);
       const rowsVisual = Math.max(1, Math.min(b.functions.length, Math.floor((b.h * CITY_SIZE) / 0.0075)));
       const failFloor = b.functions.findIndex((f) => f.failing);
       this.aInfo.setXYZW(i, Math.max(1, rowsVisual), 0, 0, (i * 0.618) % 1);
@@ -333,6 +351,10 @@ export class CityView {
     }
     if (this.buildingMesh.instanceColor) this.buildingMesh.instanceColor.needsUpdate = true;
     this.aInfo.needsUpdate = true;
+    this.aHot.needsUpdate = true;
+    this.scaffoldOf = [];
+    for (let i = 0; i < n && this.scaffoldOf.length < MAX_SCAFFOLD - 1; i++) if ((data.buildings[i].history?.hot ?? 0) >= HOT_SCAFFOLD) this.scaffoldOf.push(i, i);
+    this.scaffold.count = this.scaffoldOf.length;
     this.aFail.needsUpdate = true;
     this.aRoof.needsUpdate = true;
     this.aMat.needsUpdate = true;
@@ -480,6 +502,25 @@ export class CityView {
       this.roofBits.setMatrixAt(k, this.m);
     }
     this.roofBits.instanceMatrix.needsUpdate = true;
+    // scaffolding on the front face and the outer side, from the ground to 60% of the height
+    for (let k = 0; k < this.scaffold.count; k++) {
+      const i = this.scaffoldOf[k];
+      const b = data.buildings[i];
+      const r = this.rise[i];
+      const fp = 0.4 + 0.6 * Math.min(1, r * 1.5);
+      const vis = r > 0.3 && !(i === this.openIndex && this.open > 0.001) ? 1 : 0.0001;
+      const h = Math.max(0.0001, b.h * r * 0.6) * vis;
+      if (k % 2 === 0) {
+        this.m.compose(this.p.set(b.x, 0, b.z + (b.d * fp) / 2), this.q.identity(), this.s.set(b.w * fp * vis, h, 0.012 * vis));
+      } else {
+        const sx = b.x < 0 ? -1 : 1;
+        this.q.setFromAxisAngle(Y_AXIS, (sx * Math.PI) / 2);
+        this.m.compose(this.p.set(b.x + (sx * b.w * fp) / 2, 0, b.z), this.q, this.s.set(b.d * fp * vis, h, 0.012 * vis));
+        this.q.identity();
+      }
+      this.scaffold.setMatrixAt(k, this.m);
+    }
+    this.scaffold.instanceMatrix.needsUpdate = true;
     const e = this.entryIndex;
     if (e >= 0) {
       const b = data.buildings[e];
@@ -748,6 +789,37 @@ function roundedRect(half: number, r: number): Shape {
   s.lineTo(-half, -half + r);
   s.quadraticCurveTo(-half, -half, -half + r, -half);
   return s;
+}
+
+/**
+ * Scaffolding for one face, unit scale: x across the face (-0.5..0.5), y up
+ * (0..1), z outward from the wall (0..1). Grey poles and timber planks with
+ * vertex colours, merged (the InstancedMesh draws every scaffolded face in one call).
+ */
+function makeScaffoldGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+  const add = (w: number, h: number, d: number, x: number, y: number, z: number, hex: string, rz = 0) => {
+    const g = new BoxGeometry(w, h, d).toNonIndexed();
+    g.rotateZ(rz);
+    g.translate(x, y, z);
+    g.deleteAttribute('uv');
+    const c = new Color(hex);
+    const pos = g.getAttribute('position');
+    const col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const ao = 0.75 + 0.25 * Math.min(1, pos.getY(i) / 0.3);
+      col.set([c.r * ao, c.g * ao, c.b * ao], i * 3);
+    }
+    g.setAttribute('color', new BufferAttribute(col, 3));
+    parts.push(g);
+  };
+  for (const x of [-0.47, -0.16, 0.16, 0.47]) add(0.035, 1, 0.22, x, 0.5, 0.72, '#8f969c'); // poles
+  for (const y of [0.34, 0.67, 0.985]) {
+    add(1, 0.03, 0.9, 0, y, 0.5, '#b88a55'); // plank deck
+    add(1, 0.022, 0.1, 0, y + 0.1, 0.92, '#8f969c'); // guard rail
+  }
+  add(1.15, 0.025, 0.08, 0, 0.5, 0.94, '#8f969c', 0.5); // a diagonal brace
+  return mergeGeometries(parts)!;
 }
 
 /**

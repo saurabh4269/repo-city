@@ -62,6 +62,8 @@ export interface Building {
   imports: string[];
   /** Test assertions that exercise this file (from its test file), in the bugged run. */
   tests: { passed: number; failed: number };
+  /** Git history (optional): commits touching the file, lines changed, and the hotspot score 0..1 (commits × complexity, top file = 1). */
+  history?: { commits: number; churn: number; hot: number };
 }
 
 export interface Fn {

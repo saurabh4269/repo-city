@@ -12,6 +12,7 @@ import { run } from 'node:test'
 import { runTests } from './run-tests.mjs'
 import { buildCity } from './index.mjs'
 import { writeLight } from './light-bake.mjs'
+import { cloneHistory } from './history.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PROJECT = path.resolve(HERE, '..', '..')
@@ -38,6 +39,17 @@ for (const variant of ['bugged', 'fixed']) {
   writeJson(out, res, true)
   console.log(`semver tests (${variant}): ${res.passed}/${res.total} passed, ${res.failed} failed (${res.durationMs} ms) -> ${rel(out)}`)
 }
+// semver's git history up to the vendored tag (the snapshot has no .git): a blobless clone,
+// cached in fixtures so later builds work offline; `npm run city -- --refresh-history` re-reads it.
+// 4 years, not 2: semver is quiet, and in its last 2 years one reformat commit touched nearly every file once.
+const historyFile = p('fixtures/semver-results/history.json')
+if (!fs.existsSync(historyFile) || process.argv.includes('--refresh-history')) {
+  const h = cloneHistory('https://github.com/npm/node-semver', 'v7.7.3', 4)
+  if (h) {
+    writeJson(historyFile, h, true)
+    console.log(`semver history: ${Object.keys(h).length} paths -> ${rel(historyFile)}`)
+  }
+}
 const semverOut = p('public/cities/semver.json')
 const semver = buildCity({
   root: semverRoot,
@@ -48,6 +60,7 @@ const semver = buildCity({
   fixed: p('fixtures/semver-results/fixed.json'),
   fix: fixFile,
   summaries: p('tools/repo-to-city/semver-summaries.json'),
+  ...(fs.existsSync(historyFile) ? { history: historyFile } : {}),
 })
 semver.light = writeLight(semver, semverOut)
 report(semver, semverOut, writeJson(semverOut, semver))
@@ -88,6 +101,7 @@ const repoCity = buildCity({
   base: 'src',
   tests: unitFile,
   summaries: p('tools/repo-to-city/repo-city-summaries.json'),
+  history: 'git',
 })
 repoCity.light = writeLight(repoCity, repoOut)
 report(repoCity, repoOut, writeJson(repoOut, repoCity))

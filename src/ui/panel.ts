@@ -148,6 +148,9 @@ function drawWelcome(ctx: CanvasRenderingContext2D, a: Area, c: CityData): void 
     lx += w + 14;
     if (lx > a.x + a.w - 120) break;
   }
+  if (c.buildings.some((b) => (b.history?.hot ?? 0) >= 0.6)) {
+    fitText(ctx, 'Scaffolding: files that change often and are complex. Bugs tend to live there.', a.x, ly + 112, a.w, 46, { size: 32, color: '#e7c98f' });
+  }
   fitText(ctx, `Source: ${c.source.repo} (${c.source.license}). ${c.source.note}`, a.x, a.y + a.h - 50, a.w, 50, { size: 30, color: '#7d8a99' });
 }
 
@@ -158,7 +161,8 @@ function drawBuilding(ctx: CanvasRenderingContext2D, a: Area, b: Building, floor
   if (c?.entry === b.id) x += chip(ctx, 'Entry point', x, a.y, 'rgba(217,178,92,0.3)', '#f3d48a', 30) + 12;
   if (district) x += chip(ctx, district.name, x, a.y, 'rgba(255,255,255,0.12)', UI.text, 30) + 16;
   fitText(ctx, `${b.path} · floor ${b.functions.indexOf(f) + 1} of ${b.functions.length}`, x, a.y - 4, a.w - (x - a.x), 60, { size: 50, weight: 800 });
-  fitText(ctx, b.summary, a.x, a.y + 62, a.w, 50, { size: 34, color: UI.dim });
+  const changed = b.history?.commits ? `  ·  Changed in ${b.history.commits} commit${b.history.commits === 1 ? '' : 's'}` : '';
+  fitText(ctx, b.summary + changed, a.x, a.y + 62, a.w, 50, { size: 34, color: UI.dim });
   const y = a.y + 124;
   const h = a.h - 124;
   roundRect(ctx, a.x, y, a.w, h, 20);

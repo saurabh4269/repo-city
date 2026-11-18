@@ -10,6 +10,7 @@ import { ATLAS, FACES, GROUND_HALF, GROUND_PX, TILE, TILE_COLS } from './light-l
  *   aInfo  vec4: floors (window rows), fire (0..1), hover (0..1), seed
  *   aFail  float: index of the failing floor (-1 = none)
  *   aRoof  vec3: roof tint;  aMat float: roof roughness (per district)
+ *   aHot   float: hotspot 0..1 (git history × complexity): the facade warms and darkens toward the base
  *   aTile  float: index into the baked light atlas (-1 = not baked, e.g. the open building's floors)
  * Geometry must be a unit box with its base at y = 0 (x, z in [-0.5, 0.5]).
  * `uUnit` converts the instance scale (city units) to metres for the window
@@ -104,6 +105,8 @@ attribute float aFail;
 attribute vec3 aRoof;
 attribute float aMat;
 attribute float aTile;
+attribute float aHot;
+varying float vHot;
 varying vec3 vRoof;
 varying float vMat;
 varying float vTile;
@@ -120,6 +123,7 @@ vObjPos = position;
 vRoof = aRoof;
 vMat = aMat;
 vTile = aTile;
+vHot = aHot;
 vObjNormal = normal;
 vInfo = aInfo;
 vFail = aFail;
@@ -138,6 +142,7 @@ uniform float uUnit;
 uniform float uGlow;
 uniform vec3 uWindow;${LIGHT_UNIFORMS}
 varying float vMat;
+varying float vHot;
 varying float vTile;
 varying vec3 vRoof;
 varying vec3 vObjPos;
@@ -191,6 +196,8 @@ bool rcBaked = uLightOn > 0.5 && vTile >= 0.0;
     totalEmissiveRadiance += win * mix(warm, burn, max(isFail, fire * step(rows - 1.5, row)));
     // soft contact darkening at the foot of every wall; baked buildings get it from the atlas instead
     if (!rcBaked) diffuseColor.rgb *= mix(0.62, 1.0, smoothstep(0.0, 0.014, vObjPos.y * heightM));
+    // weathering: hot spots (files that change often and are complex) are worn toward the base, at most ~-12%
+    diffuseColor.rgb *= mix(vec3(1.0), vec3(0.95, 0.87, 0.79), vHot * (1.0 - smoothstep(0.0, 0.75, vObjPos.y)));
     // a building on fire is scorched near the top
     diffuseColor.rgb *= 1.0 - fire * 0.55 * smoothstep(0.45, 1.0, vObjPos.y);
   } else if (n.y > 0.5) {

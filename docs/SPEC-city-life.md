@@ -35,6 +35,8 @@ Ground rules for all five:
 **When:** on **Run the tests** (not "Show me the fix", which stays a reading moment), before the green wave.
 
 **Sequence** (total about 2.4 s; the test run starts at the end):
+
+*As built:* the moving slab is the failing floor's own instance (0 extra draws), and the crane's cable and hook move in its vertex shader (1 draw). The fire goes out with steam as the old slab is lifted away (t ≈ 1.4 s), not after the new one lands, because the fire follows the failing floor.
 | t (s) | What happens |
 |---|---|
 | 0.0–0.6 | A tower crane drops in from above the opened building's floor stack on the desk (ease-out), jib over the failing floor. Soft whoosh. |
@@ -61,6 +63,7 @@ Ground rules for all five:
 - For each file: `commits` (number of commits touching it) and `churn` (lines added plus deleted). Follow renames only if it's cheap (`--follow` is per-file, so skip it).
 - **Semver:** the vendored copy has no `.git`. At build time, `git clone --filter=blob:none --no-checkout https://github.com/npm/node-semver` into a temp folder, check the history up to tag `v7.7.3`, and map paths 1:1. If there's no network or the tag is missing, drop the history and log a warning. The city stays valid.
 - **Repo City's own city:** use this repo's git history for `projects/repo-city/`.
+- *As built:* semver uses a **4-year** window, not 2. In its last 2 years one reformatting commit touched nearly every file once, so 39 of 46 files tied at 1 commit and the score said nothing. The history is cached in `fixtures/semver-results/history.json`, so `npm run city` works offline; `--refresh-history` re-clones. Percentiles are mid-rank (ties share the average rank), so a value most files share doesn't score near the top.
 
 **Data:** `Building.history?: { commits: number; churn: number; hot: number }`. `hot` is in 0..1 and is the **hotspot score**: `rank(commits) × rank(complexity)`, each as a percentile within the city, then scaled so the top file is 1. Pure function `hotspot(buildings)` with unit tests: an empty history gives every file 0, ties are stable, and the top file is 1.
 

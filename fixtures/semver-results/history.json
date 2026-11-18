@@ -1,0 +1,622 @@
+{
+  ".release-please-manifest.json": {
+    "commits": 16,
+    "churn": 33
+  },
+  "CHANGELOG.md": {
+    "commits": 18,
+    "churn": 205
+  },
+  "package.json": {
+    "commits": 96,
+    "churn": 321
+  },
+  "benchmarks/bench-compare.js": {
+    "commits": 3,
+    "churn": 90
+  },
+  "benchmarks/bench-parse.js": {
+    "commits": 3,
+    "churn": 40
+  },
+  "classes/semver.js": {
+    "commits": 14,
+    "churn": 122
+  },
+  "internal/identifiers.js": {
+    "commits": 3,
+    "churn": 8
+  },
+  "test/internal/identifiers.js": {
+    "commits": 3,
+    "churn": 7
+  },
+  "classes/range.js": {
+    "commits": 13,
+    "churn": 179
+  },
+  "test/fixtures/range-parse.js": {
+    "commits": 5,
+    "churn": 49
+  },
+  ".github/workflows/post-dependabot.yml": {
+    "commits": 19,
+    "churn": 325
+  },
+  ".eslintrc.local.js": {
+    "commits": 2,
+    "churn": 19
+  },
+  "benchmarks/bench-diff.js": {
+    "commits": 2,
+    "churn": 23
+  },
+  "benchmarks/bench-parse-options.js": {
+    "commits": 2,
+    "churn": 35
+  },
+  "benchmarks/bench-satisfies.js": {
+    "commits": 2,
+    "churn": 41
+  },
+  "benchmarks/bench-subset.js": {
+    "commits": 2,
+    "churn": 27
+  },
+  "bin/semver.js": {
+    "commits": 8,
+    "churn": 70
+  },
+  "classes/comparator.js": {
+    "commits": 5,
+    "churn": 80
+  },
+  "classes/index.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "functions/clean.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/cmp.js": {
+    "commits": 2,
+    "churn": 14
+  },
+  "functions/coerce.js": {
+    "commits": 4,
+    "churn": 27
+  },
+  "functions/compare-build.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/compare-loose.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/compare.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/diff.js": {
+    "commits": 8,
+    "churn": 185
+  },
+  "functions/eq.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/gt.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/gte.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/inc.js": {
+    "commits": 3,
+    "churn": 12
+  },
+  "functions/lt.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/lte.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/major.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/minor.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/neq.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/parse.js": {
+    "commits": 4,
+    "churn": 31
+  },
+  "functions/patch.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/prerelease.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/rcompare.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/rsort.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/satisfies.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/sort.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "functions/valid.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "index.js": {
+    "commits": 3,
+    "churn": 125
+  },
+  "internal/constants.js": {
+    "commits": 5,
+    "churn": 28
+  },
+  "internal/debug.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "internal/lrucache.js": {
+    "commits": 3,
+    "churn": 54
+  },
+  "internal/parse-options.js": {
+    "commits": 3,
+    "churn": 32
+  },
+  "internal/re.js": {
+    "commits": 8,
+    "churn": 89
+  },
+  "map.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "preload.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "ranges/gtr.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "ranges/intersects.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "ranges/ltr.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "ranges/max-satisfying.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "ranges/min-satisfying.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "ranges/min-version.js": {
+    "commits": 2,
+    "churn": 5
+  },
+  "ranges/outside.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "ranges/simplify.js": {
+    "commits": 2,
+    "churn": 29
+  },
+  "ranges/subset.js": {
+    "commits": 3,
+    "churn": 95
+  },
+  "ranges/to-comparators.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "ranges/valid.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/bin/semver.js": {
+    "commits": 5,
+    "churn": 31
+  },
+  "test/classes/comparator.js": {
+    "commits": 3,
+    "churn": 27
+  },
+  "test/classes/index.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/classes/range.js": {
+    "commits": 6,
+    "churn": 57
+  },
+  "test/classes/semver.js": {
+    "commits": 9,
+    "churn": 141
+  },
+  "test/fixtures/comparator-intersection.js": {
+    "commits": 2,
+    "churn": 10
+  },
+  "test/fixtures/comparisons.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/fixtures/equality.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/fixtures/increments.js": {
+    "commits": 8,
+    "churn": 61
+  },
+  "test/fixtures/invalid-versions.js": {
+    "commits": 2,
+    "churn": 24
+  },
+  "test/fixtures/range-exclude.js": {
+    "commits": 3,
+    "churn": 5
+  },
+  "test/fixtures/range-include.js": {
+    "commits": 2,
+    "churn": 3
+  },
+  "test/fixtures/range-intersection.js": {
+    "commits": 2,
+    "churn": 10
+  },
+  "test/fixtures/version-gt-range.js": {
+    "commits": 3,
+    "churn": 9
+  },
+  "test/fixtures/version-lt-range.js": {
+    "commits": 3,
+    "churn": 11
+  },
+  "test/fixtures/version-not-gt-range.js": {
+    "commits": 3,
+    "churn": 6
+  },
+  "test/fixtures/version-not-lt-range.js": {
+    "commits": 3,
+    "churn": 6
+  },
+  "test/functions/clean.js": {
+    "commits": 3,
+    "churn": 5
+  },
+  "test/functions/cmp.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/coerce.js": {
+    "commits": 5,
+    "churn": 57
+  },
+  "test/functions/compare-build.js": {
+    "commits": 2,
+    "churn": 3
+  },
+  "test/functions/compare-loose.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/functions/compare.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/diff.js": {
+    "commits": 7,
+    "churn": 50
+  },
+  "test/functions/eq.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/gt.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/gte.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/inc.js": {
+    "commits": 4,
+    "churn": 34
+  },
+  "test/functions/lt.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/lte.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/major.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/functions/minor.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/functions/neq.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/parse.js": {
+    "commits": 3,
+    "churn": 20
+  },
+  "test/functions/patch.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/functions/prerelease.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/functions/rcompare.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/rsort.js": {
+    "commits": 2,
+    "churn": 6
+  },
+  "test/functions/satisfies.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/functions/sort.js": {
+    "commits": 2,
+    "churn": 6
+  },
+  "test/functions/valid.js": {
+    "commits": 2,
+    "churn": 12
+  },
+  "test/index.js": {
+    "commits": 2,
+    "churn": 6
+  },
+  "test/integration/whitespace.js": {
+    "commits": 4,
+    "churn": 73
+  },
+  "test/internal/constants.js": {
+    "commits": 3,
+    "churn": 11
+  },
+  "test/internal/debug.js": {
+    "commits": 2,
+    "churn": 22
+  },
+  "test/internal/lrucache.js": {
+    "commits": 2,
+    "churn": 21
+  },
+  "test/internal/parse-options.js": {
+    "commits": 3,
+    "churn": 33
+  },
+  "test/internal/re.js": {
+    "commits": 4,
+    "churn": 23
+  },
+  "test/map.js": {
+    "commits": 5,
+    "churn": 111
+  },
+  "test/preload.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/ranges/gtr.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/ranges/intersects.js": {
+    "commits": 2,
+    "churn": 36
+  },
+  "test/ranges/ltr.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/ranges/max-satisfying.js": {
+    "commits": 2,
+    "churn": 5
+  },
+  "test/ranges/min-satisfying.js": {
+    "commits": 2,
+    "churn": 5
+  },
+  "test/ranges/min-version.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/ranges/outside.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/ranges/simplify.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/ranges/subset.js": {
+    "commits": 1,
+    "churn": 2
+  },
+  "test/ranges/to-comparators.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  "test/ranges/valid.js": {
+    "commits": 2,
+    "churn": 4
+  },
+  ".github/workflows/audit.yml": {
+    "commits": 14,
+    "churn": 194
+  },
+  ".github/workflows/ci-release.yml": {
+    "commits": 12,
+    "churn": 620
+  },
+  ".github/workflows/ci.yml": {
+    "commits": 18,
+    "churn": 538
+  },
+  ".github/workflows/codeql-analysis.yml": {
+    "commits": 11,
+    "churn": 93
+  },
+  ".github/workflows/pull-request.yml": {
+    "commits": 14,
+    "churn": 225
+  },
+  ".github/workflows/release-integration.yml": {
+    "commits": 4,
+    "churn": 102
+  },
+  ".github/workflows/release.yml": {
+    "commits": 19,
+    "churn": 1153
+  },
+  "test/fixtures/valid-versions.js": {
+    "commits": 1,
+    "churn": 31
+  },
+  ".gitignore": {
+    "commits": 8,
+    "churn": 75
+  },
+  "release-please-config.json": {
+    "commits": 6,
+    "churn": 77
+  },
+  "README.md": {
+    "commits": 12,
+    "churn": 176
+  },
+  "tap-snapshots/test/bin/semver.js.test.cjs": {
+    "commits": 5,
+    "churn": 496
+  },
+  ".commitlintrc.js": {
+    "commits": 3,
+    "churn": 14
+  },
+  ".github/actions/create-check/action.yml": {
+    "commits": 3,
+    "churn": 56
+  },
+  ".github/actions/install-latest-npm/action.yml": {
+    "commits": 3,
+    "churn": 60
+  },
+  "SECURITY.md": {
+    "commits": 4,
+    "churn": 21
+  },
+  ".github/dependabot.yml": {
+    "commits": 4,
+    "churn": 55
+  },
+  ".eslintrc.js": {
+    "commits": 4,
+    "churn": 20
+  },
+  ".github/settings.yml": {
+    "commits": 3,
+    "churn": 61
+  },
+  "CONTRIBUTING.md": {
+    "commits": 2,
+    "churn": 51
+  },
+  "scripts/_step-test.yml": {
+    "commits": 2,
+    "churn": 8
+  },
+  ".github/matchers/tap.json": {
+    "commits": 2,
+    "churn": 34
+  },
+  ".github/workflows/release-please.yml": {
+    "commits": 2,
+    "churn": 52
+  },
+  "CODE_OF_CONDUCT.md": {
+    "commits": 1,
+    "churn": 7
+  },
+  ".github/CODEOWNERS": {
+    "commits": 1,
+    "churn": 3
+  },
+  ".github/ISSUE_TEMPLATE/bug.yml": {
+    "commits": 1,
+    "churn": 54
+  },
+  ".github/ISSUE_TEMPLATE/config.yml": {
+    "commits": 1,
+    "churn": 3
+  },
+  ".npmrc": {
+    "commits": 1,
+    "churn": 3
+  },
+  ".travis.yml": {
+    "commits": 1,
+    "churn": 16
+  },
+  "package-lock.json": {
+    "commits": 3,
+    "churn": 14530
+  },
+  "tap-snapshots/test-bin-semver.js-TAP.test.js": {
+    "commits": 1,
+    "churn": 222
+  },
+  "tap-snapshots/test-cli.js-TAP.test.js": {
+    "commits": 1,
+    "churn": 222
+  }
+}
