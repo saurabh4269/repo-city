@@ -30,7 +30,9 @@ export class Sparks {
         void main(){ vC = aColor; vA = aAlpha; vec4 mv = modelViewMatrix * vec4(position,1.0);
           gl_PointSize = 0.006 * uScale * projectionMatrix[1][1] / max(0.05, -mv.z); gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `varying vec3 vC; varying float vA;
-        void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(vC * a * vA, 1.0); }`,
+        void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d) * vA; if (a < 0.01) discard;
+          // alpha must fade too: in immersive-ar the framebuffer alpha decides passthrough, so alpha 1 drew black squares
+          gl_FragColor = vec4(vC, a); }`,
       transparent: true,
       depthWrite: false,
       blending: AdditiveBlending,

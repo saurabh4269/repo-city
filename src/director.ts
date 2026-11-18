@@ -572,12 +572,12 @@ export class RepoCityDirector extends createSystem({
       case 'find-fire':
         this.guideBeacon = 4;
         this.guide(fireB ? `A test is failing, so ${fireB.name} is on fire. Pinch its roof and lift it off.` : d.guide.intro);
-        this.setPlaques(fireB ? [{ id: 'goto-fire', text: 'Open the burning building', accent: UI.fire }, nextCityPlaque(this)] : [nextCityPlaque(this)]);
+        this.setPlaques(fireB ? [{ id: 'goto-fire', text: 'Open the fire', accent: UI.fire }, nextCityPlaque(this)] : [nextCityPlaque(this)]);
         break;
       case 'touch-floor':
         this.guideBeacon = 4;
         this.guide(d.guide.onFire);
-        this.setPlaques([{ id: 'touch-floor', text: 'Show the smouldering floor', accent: UI.fire }, { id: 'close', text: 'Close the building' }]);
+        this.setPlaques([{ id: 'touch-floor', text: 'Find the bug', accent: UI.fire }, { id: 'close', text: 'Close the building' }]);
         break;
       case 'read-failure':
         this.guide('This check fails. Read what it expected and what it got. Then ask me for the fix.');
@@ -670,7 +670,7 @@ export class RepoCityDirector extends createSystem({
       this.setPlaques([{ id: 'close', text: 'Close the building' }, this.districtPlaque(b), nextCityPlaque(this)]);
     } else if (i !== this.fireIndex) {
       this.guide(`${b.name}: ${b.summary} The fire is in ${this.data!.buildings[this.fireIndex]?.name}.`, false);
-      this.setPlaques([{ id: 'goto-fire', text: 'Open the burning building', accent: UI.fire }, this.districtPlaque(b), { id: 'close', text: 'Close the building' }]);
+      this.setPlaques([{ id: 'goto-fire', text: 'Open the fire', accent: UI.fire }, this.districtPlaque(b), { id: 'close', text: 'Close the building' }]);
     } else {
       this.applyStep();
     }

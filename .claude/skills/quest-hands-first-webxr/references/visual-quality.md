@@ -141,3 +141,4 @@ Whatever sits in view the whole session (the counter on the user's table, a desk
   - Let the legs follow the real table height (`setHeight`).
 - **Cel-lit worlds blow out dark, saturated "cloth" colours** (a banana leaf, a green desk cloth) into neon. Remove them or give them real materials; darkening the hex barely helps.
 - **Cabins:** a full-width dark slab standing in for the user's table fills the lower view during a ride. Make it a narrow padded strip at the user's edge.
+- **Additive point sprites in passthrough must fade their alpha too.** In `immersive-ar` the framebuffer alpha decides how much passthrough shows, so a shader that writes `vec4(color * a, 1.0)` draws each point as an opaque black square. Write `vec4(color, a)` (and `discard` below ~0.01). The emulator shows it too: look for dark specks in screenshots after any particle burst.

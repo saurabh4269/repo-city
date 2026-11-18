@@ -85,7 +85,7 @@ export class Plaques {
       ctx.lineWidth = hot ? 10 : 5;
       ctx.strokeStyle = spec.accent ?? UI.blue;
       ctx.stroke();
-      fitText(ctx, spec.text, 30, 18, W - 60, H - 36, { size: 52, weight: 700, align: 'center', valign: 'middle', font: FONT_UI, lineHeight: 1.1 });
+      fitText(ctx, spec.text, 20, 14, W - 40, H - 28, { size: 52, weight: 700, align: 'center', valign: 'middle', font: FONT_UI, lineHeight: 1.1 });
     });
   }
 

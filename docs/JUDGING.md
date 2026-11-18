@@ -28,7 +28,7 @@ Meta VR Start Developer Competition 2026. Four criteria, 25% each. Evidence is l
 ## Criterion 2: Experience Design
 - **One verb in two seconds:** pinch a roof and lift it. Secondary verbs: touch a floor, poke a plaque, two-hand pinch to scale/rotate.
 - **Awe moment within ~60 s:** the city grows out of your table with a dust ring; one tower is burning; you lift its roof and it slides out onto the desk beside the city as a stack of lit floors, one smouldering.
-- **Teach in context, with a guide:** the lantern guide speaks (browser TTS) and captions every step on the panel, flies over to point at the burning roof and then at the smouldering floor, and repeats the step after 15 s of no progress (Meta's "contextual reminders"). Every step also has a plaque on the table ("Open the burning building", "Show the smouldering floor") so no one gets stuck.
+- **Teach in context, with a guide:** the lantern guide speaks (browser TTS) and captions every step on the panel, flies over to point at the burning roof and then at the smouldering floor, and repeats the step after 15 s of no progress (Meta's "contextual reminders"). Every step also has a plaque on the table ("Open the fire", "Find the bug") so no one gets stuck.
 - **Intent guardrails** (Meta's hands guidance):
   - a hand passing over the flames does nothing; a fingertip held in them for 0.3 s opens the building;
   - a floor stack growing around a resting finger never selects a floor (the finger must be seen outside first);
