@@ -32,8 +32,8 @@ The journey, hands only (`xr set-input-mode hand`), seated at the emulated livin
 | 6 | Touching the smouldering floor with the fingertip selects it (failing = true) |
 | 7 | The fire report offers the fix |
 | 8 | Poking the "Show me the fix" plaque shows the fix and offers the tests |
-| 9 | Poking "Run the tests" starts the run |
-| 10 | The fire goes out |
+| 9 | Poking "Run the tests" starts the fix crane (`crane start`) |
+| 10 | The fire goes out as the crane lifts the broken floor away, then `crane done` and the run starts |
 | 11 | All 8,827 checks pass |
 | 12 | A two-hand pinch scales the city |
 | 13 | "Next city" loads Repo City's own code |

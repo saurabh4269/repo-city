@@ -27,6 +27,7 @@ import { landmarkSize } from './city/details.js';
 import { loadDataTexture } from './city/textures.js';
 import { Fire } from './fx/fire.js';
 import { Sparks } from './fx/sparks.js';
+import { Crane, HOOK_REST, JIB_LEN } from './fx/crane.js';
 import { Hands, type HandState } from './input/hands.js';
 import { gatherPlanes } from './mr/plane-source.js';
 import { describeReport, emptyReport, findTableSpot, type PlaneInput, resetReport } from './mr/room-placement.js';
@@ -162,6 +163,7 @@ export class RepoCityDirector extends createSystem({
     this.fire = new Fire();
     this.city.root.add(this.fire.group);
     this.city.root.add(this.sparks.points);
+    this.city.units.add(this.crane.mesh);
     this.fireLight = new PointLight('#ff8a3a', 0, 0.35, 2);
     this.city.root.add(this.fireLight);
 
@@ -768,14 +770,134 @@ export class RepoCityDirector extends createSystem({
     this.refreshPanel();
   }
 
+  /** "Run the tests": the crane swaps the broken floor first (when the burning building is open), then the run. */
   private runTests(): void {
+    if (this.craneT >= 0 || this.phase === 'testing') return; // a second press does nothing
+    const fi = this.fireIndex;
+    const b = fi >= 0 ? this.data?.buildings[fi] : undefined;
+    const f = b ? b.functions.findIndex((x) => x.failing) : -1;
+    if (b && f >= 0 && f < this.city.floorCount && this.city.openIndex === fi && this.city.fire[fi] > 0 && this.city.open > 0.9) this.startCrane(f);
+    else this.startTestRun();
+  }
+
+  // ───────────────────────── the fix crane (docs/SPEC-city-life.md §2)
+
+  private crane = new Crane();
+  /** Seconds into the crane sequence, -1 when idle. */
+  private craneT = -1;
+  private readonly cr = { f: -1, mastZ: 0, base: 0, S: 1, reach0: 0, reach1: 0, slabTop: 0, dyMax: 0, ev: 0 };
+
+  private startCrane(f: number): void {
+    const c = this.city;
+    const o = f * 6;
+    const bx = c.floorBoxes;
+    const base = -PLINTH_H / CITY_SIZE;
+    const fz = bx[o + 2], hd = bx[o + 5];
+    const mastZ = fz - hd - 0.1;
+    const reach0 = fz - mastZ;
+    const reach1 = reach0 + 0.03 / CITY_SIZE; // the floor slides out 3 cm
+    const S = Math.max(1.4 * (c.stackTop - base), (reach1 + 0.03) / (JIB_LEN - 0.05));
+    const slabTop = bx[o + 1] + bx[o + 4];
+    Object.assign(this.cr, { f, mastZ, base, S, reach0, reach1, slabTop, dyMax: base + 0.84 * S - slabTop, ev: 0 });
+    this.crane.mesh.position.set(bx[o], base, mastZ);
+    this.crane.mesh.scale.setScalar(S);
+    this.crane.mesh.visible = true;
+    this.craneT = 0;
+    this.plaques.set([]);
+    this.guide('The crane lifts out the broken floor and lowers in the fixed one.', false);
+    sfx.whoosh();
+    log('crane start');
+    this.updateCrane(0);
+  }
+
+  private updateCrane(dt: number): void {
+    const c = this.city;
+    const cr = this.cr;
+    if (c.openIndex !== this.fireIndex) return this.endCrane(); // closed mid-sequence: snap to the end
+    const t = (this.craneT += dt);
+    const seg = (a: number, b: number) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+    const ease = (x: number) => 1 - (1 - x) * (1 - x) * (1 - x);
+    const smooth = (x: number) => x * x * (3 - 2 * x);
+    const once = (bit: number, at: number, fn: () => void) => {
+      if (t >= at && !(cr.ev & bit)) {
+        cr.ev |= bit;
+        fn();
+      }
+    };
+    const S = cr.S;
+    const hookLocal = (yTop: number) => (yTop - cr.base) / S;
+    const slab = c.craneSlab;
+    // 0.0–0.6 drop in; 2.0–2.4 lift out (and shrink away)
+    const inK = ease(seg(0, 0.6));
+    const outK = smooth(seg(2.0, 2.4));
+    this.crane.mesh.position.y = cr.base + (1 - inK) * 0.35 + outK * 0.3;
+    this.crane.mesh.scale.setScalar(S * (1 - outK * 0.999));
+    let trolley = cr.reach0 / S;
+    let hookY = HOOK_REST;
+    slab.f = cr.f;
+    slab.dx = 0;
+    slab.dy = 0;
+    slab.dz = 0;
+    slab.s = 1;
+    if (t < 0.85) {
+      // 0.6–0.85 the hook lowers onto the failing floor
+      hookY = HOOK_REST + (hookLocal(cr.slabTop) - HOOK_REST) * smooth(seg(0.6, 0.85));
+      if (t < 0.6) slab.f = -1;
+    } else if (t < 1.5) {
+      // 0.85–1.1 it slides out and lifts, still smouldering; 1.1–1.5 up and away
+      const out = smooth(seg(0.85, 1.1));
+      slab.dz = out * (cr.reach1 - cr.reach0);
+      slab.dy = out * 0.04 + smooth(seg(1.1, 1.45)) * (cr.dyMax - 0.04);
+      slab.s = 1 - smooth(seg(1.3, 1.5));
+      trolley = (cr.reach0 + slab.dz) / S;
+      hookY = hookLocal(cr.slabTop + slab.dy);
+    } else if (t < 1.75) {
+      // 1.5–1.75 the new floor lowers into place
+      const k = smooth(seg(1.5, 1.75));
+      slab.dy = (1 - k) * cr.dyMax;
+      slab.s = Math.min(1, (t - 1.5) / 0.08);
+      hookY = hookLocal(cr.slabTop + slab.dy);
+    } else {
+      // 1.75–2.0 the hook winds back up
+      slab.f = -1;
+      hookY = hookLocal(cr.slabTop) + (HOOK_REST - hookLocal(cr.slabTop)) * smooth(seg(1.75, 2.0));
+    }
+    this.crane.setHook(trolley, hookY);
+    once(1, 0.6, () => sfx.ratchet(5));
+    once(2, 1.1, () => sfx.ratchet(7));
+    once(4, 1.4, () => this.extinguish());
+    once(8, 1.5, () => c.markFloorFixed(cr.f));
+    once(16, 1.75, () => {
+      sfx.clunk();
+      c.floorWorld(cr.f, this.v, true);
+      c.root.worldToLocal(this.v);
+      this.sparks.burst(this.v, 14, '#d8cfbd', 0.14);
+    });
+    once(32, 1.8, () => sfx.ratchet(4));
+    if (t >= 2.4) this.endCrane();
+  }
+
+  /** The end state of the crane (also when the building closes mid-sequence), then the test run. */
+  private endCrane(): void {
+    if (this.craneT < 0) return;
+    const c = this.city;
+    if (!(this.cr.ev & 4)) this.extinguish();
+    if (!(this.cr.ev & 8) && c.openIndex === this.fireIndex) c.markFloorFixed(this.cr.f);
+    c.craneSlab.f = -1;
+    this.crane.mesh.visible = false;
+    this.craneT = -1;
+    log('crane done');
+    this.startTestRun();
+  }
+
+  private startTestRun(): void {
     const d = this.data;
     if (!d) return;
     const run = d.fix?.run ?? d.run;
     this.setPhase('testing');
     // sweep from the back-left to the front-right of the city
     const order = d.buildings.map((_, i) => i).sort((a, b) => d.buildings[a].x + d.buildings[a].z * 0.4 - (d.buildings[b].x + d.buildings[b].z * 0.4));
-    this.testing = { t: 0, order, next: 0, passed: 0, failed: 0, total: run.total, extinguished: false };
+    this.testing = { t: 0, order, next: 0, passed: 0, failed: 0, total: run.total, extinguished: this.fireIndex < 0 || this.city.fire[this.fireIndex] <= 0 };
     this.plaques.set([]);
     this.guide('Running the tests…', false);
     this.updateTesting(0);
@@ -909,6 +1031,7 @@ export class RepoCityDirector extends createSystem({
       case 'done':
         this.updateInteraction(dt);
         this.updateCare(dt);
+        if (this.craneT >= 0) this.updateCrane(dt);
         break;
       case 'testing':
         this.updateInteraction(dt);

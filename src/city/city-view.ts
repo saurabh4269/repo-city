@@ -40,6 +40,7 @@ const PLINTH_MARGIN = 0.02;
 export const PLINTH_H = 0.018;
 const MAX_BUILDINGS = 96;
 export const MAX_FLOORS = 24;
+const FIXED_GREEN = new Color('#5fe39a');
 
 /** Muted model-railway tints, one per district. */
 export const DISTRICT_TINTS_HEX = ['#8fb98a', '#e2c27f', '#8fa9cc', '#d98f74', '#ad9bd6', '#7fc0b8'];
@@ -112,6 +113,8 @@ export class CityView {
   /** Roof lift beyond the open stack, 0..1 (the hand can pull it further). */
   roofExtra = 0;
   hoverIndex = -1;
+  /** The crane's slab: floor `f` of the open stack moved by (dx, dy, dz) city units and scaled by s (-1 = none). */
+  readonly craneSlab = { f: -1, dx: 0, dy: 0, dz: 0, s: 1 };
   /** Where the opened building stands, city units: beside the city on the desk (x side set by the director). */
   inspectX = 0.66;
   inspectZ = 0.12;
@@ -506,6 +509,7 @@ export class CityView {
   setOpen(i: number): void {
     if (i === this.openIndex) return;
     this.openIndex = i;
+    this.craneSlab.f = -1;
     this.open = 0;
     this.roofExtra = 0;
     this.selectedFloor = -1;
@@ -534,6 +538,16 @@ export class CityView {
     this.fMat.needsUpdate = true;
     this.detail.visible = true;
     this.writeBuildings();
+  }
+
+  /** The crane swapped in a new floor: it no longer fails, and it is tinted the district colour with a green edge. */
+  markFloorFixed(f: number): void {
+    if (f < 0 || f >= this.floorCount) return;
+    this.fFail.setX(f, -1);
+    this.fFail.needsUpdate = true;
+    this.c.setRGB(this.fRoof.getX(f), this.fRoof.getY(f), this.fRoof.getZ(f)).lerp(FIXED_GREEN, 0.35);
+    this.fRoof.setXYZ(f, this.c.r, this.c.g, this.c.b);
+    this.fRoof.needsUpdate = true;
   }
 
   /** Geometry of the exploded view at the current `open` amount. */
@@ -567,12 +581,15 @@ export class CityView {
       const hov = f === this.hoverFloor ? 1 : 0;
       // the selected floor slides out toward the viewer a little
       const slide = (sel * 0.05 + hov * 0.015) * p;
-      this.m.compose(this.p.set(ox, y, oz + slide), this.q.identity(), this.s.set(w, t, d));
+      const cs = this.craneSlab;
+      if (f === cs.f) this.m.compose(this.p.set(ox + cs.dx, y + cs.dy + (t * (1 - cs.s)) / 2, oz + slide + cs.dz), this.q.identity(), this.s.set(w * cs.s, t * cs.s, d * cs.s));
+      else this.m.compose(this.p.set(ox, y, oz + slide), this.q.identity(), this.s.set(w, t, d));
       this.floorMesh.setMatrixAt(f, this.m);
       const o = f * 6;
-      this.floorBoxes[o] = ox;
-      this.floorBoxes[o + 1] = y + t / 2;
-      this.floorBoxes[o + 2] = oz + slide;
+      const moved = f === this.craneSlab.f;
+      this.floorBoxes[o] = ox + (moved ? this.craneSlab.dx : 0);
+      this.floorBoxes[o + 1] = y + t / 2 + (moved ? this.craneSlab.dy : 0);
+      this.floorBoxes[o + 2] = oz + slide + (moved ? this.craneSlab.dz : 0);
       this.floorBoxes[o + 3] = w / 2;
       this.floorBoxes[o + 4] = t / 2;
       this.floorBoxes[o + 5] = d / 2;

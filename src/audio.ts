@@ -108,6 +108,23 @@ export class Sfx {
   testTick(i: number): void {
     this.tone(880 + (i % 5) * 110, 0.05, 'sine', 0.05);
   }
+  /** The crane drops in: a soft whoosh. */
+  whoosh(): void {
+    this.noise(0.6, 'bandpass', 1800, 0.1, 0, 0.8, 300);
+  }
+  /** The hook winding: a short click train. */
+  ratchet(n = 8): void {
+    for (let k = 0; k < n; k++) {
+      this.tone(2400 - k * 60, 0.025, 'square', 0.035, k * 0.055);
+      this.noise(0.02, 'highpass', 4000, 0.05, k * 0.055);
+    }
+  }
+  /** The new floor lands: a low thump plus a noise burst. */
+  clunk(): void {
+    this.tone(90, 0.28, 'sine', 0.35, 0, 48);
+    this.tone(180, 0.1, 'triangle', 0.12);
+    this.noise(0.18, 'lowpass', 900, 0.25, 0, 0.8, 200);
+  }
   steam(): void {
     this.noise(1.6, 'highpass', 3000, 0.22, 0, 0.6, 900);
   }
