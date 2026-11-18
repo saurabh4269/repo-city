@@ -7,7 +7,7 @@
 // what the headset is doing:
 //   tail -f artifacts/quest-log.jsonl | jq -c 'select(.quest)'
 // Only active under `vite` dev (apply: 'serve'); nothing reaches the production build.
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 const CLIENT = String.raw`(() => {
@@ -64,11 +64,38 @@ const CLIENT = String.raw`(() => {
     s.addEventListener('end', () => { inXR = false; push('xr', { event: 'end' }); send(); });
     s.addEventListener('visibilitychange', () => push('xr', { event: 'visibility', state: s.visibilityState }));
     s.addEventListener('inputsourceschange', () => push('xr', { event: 'inputs', sources: Array.from(s.inputSources).map((i) => (i.hand ? 'hand-' : 'ctrl-') + i.handedness) }));
+    let diagRef = null, lastDiag = 0;
+    s.requestReferenceSpace('local').then((r) => { diagRef = r; }, () => {});
+    const handDiag = (frame, now) => {
+      if (!diagRef || now - lastDiag < 2000) return;
+      lastDiag = now;
+      const out = [];
+      for (const src of s.inputSources) {
+        const o = { side: src.handedness, hand: !!src.hand, profiles: (src.profiles || []).slice(0, 2).join(',') };
+        if (src.hand) {
+          o.joints = src.hand.size;
+          try {
+            const w = frame.getJointPose(src.hand.get('wrist'), diagRef);
+            const tip = frame.getJointPose(src.hand.get('index-finger-tip'), diagRef);
+            o.wrist = w ? [+w.transform.position.x.toFixed(3), +w.transform.position.y.toFixed(3), +w.transform.position.z.toFixed(3)] : null;
+            o.tip = !!tip;
+            if (frame.fillPoses) {
+              const spaces = Array.from(src.hand.values());
+              const buf = new Float32Array(spaces.length * 16);
+              o.fillPoses = frame.fillPoses(spaces, diagRef, buf);
+            }
+          } catch (e) { o.err = String(e).slice(0, 200); }
+        }
+        out.push(o);
+      }
+      push('hands', { sources: out });
+    };
     const raf = s.requestAnimationFrame.bind(s);
     s.requestAnimationFrame = (cb) => raf(function (t, frame) {
       if (t !== lastT) {
         if (lastT) { frames.push(t - lastT); drawSamples.push(draws); }
         draws = 0; lastT = t;
+        try { handDiag(frame, t); } catch (e) {}
       }
       return cb.call(this, t, frame);
     });
@@ -112,6 +139,30 @@ const CLIENT = String.raw`(() => {
     send();
   }, 2000);
   addEventListener('pagehide', send);
+
+  // Command channel (top page only): the Mac writes artifacts/quest-cmd.json, [{id, js}];
+  // the page evaluates each and posts the result as kind "eval". js may return a promise.
+  if (top) {
+    let busy = false;
+    setInterval(async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const r = await fetch('/__quest-cmd', { cache: 'no-store' });
+        const cmds = r.ok ? await r.json() : [];
+        for (const c of cmds) {
+          try {
+            const v = await (0, eval)(c.js);
+            push('eval', { id: c.id, result: fmt(v).slice(0, 12000) });
+          } catch (e) {
+            push('eval', { id: c.id, error: String((e && e.stack) || e).slice(0, 3000) });
+          }
+          send();
+        }
+      } catch (e) {}
+      busy = false;
+    }, 1000);
+  }
 })();`;
 
 export function questDebug() {
@@ -126,6 +177,21 @@ export function questDebug() {
         res.setHeader('Content-Type', 'text/javascript');
         res.setHeader('Cache-Control', 'no-store');
         res.end(CLIENT);
+      });
+      // Hand the pending commands to the first page that asks, then clear them.
+      const cmdFile = join(dir, 'quest-cmd.json');
+      server.middlewares.use('/__quest-cmd', (_req, res) => {
+        let body = '[]';
+        try {
+          if (existsSync(cmdFile)) {
+            body = readFileSync(cmdFile, 'utf8') || '[]';
+            JSON.parse(body);
+            unlinkSync(cmdFile);
+          }
+        } catch { body = '[]'; }
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(body);
       });
       server.middlewares.use('/__quest-log', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
