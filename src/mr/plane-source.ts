@@ -1,4 +1,4 @@
-// Copied from hands-of-a-master/src/mr/plane-source.ts.
+// Copied from Ink and Ivory (our earlier project): src/mr/plane-source.ts.
 import { type Entity, XRPlane } from '@iwsdk/core';
 import type { PlaneInput } from './room-placement.js';
 

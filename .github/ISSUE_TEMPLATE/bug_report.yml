@@ -1,0 +1,32 @@
+name: Bug report
+description: Something in Repo City or city:repo does not work as described
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - In the headset (Quest Browser)
+        - In the emulator (IWER)
+        - city:repo or the repo-to-city pipeline
+        - Build, tests or tooling
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: Quest 3, Quest Browser 156 / Chrome 140 on macOS
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Console output, the failing command's output, or a screenshot. Please remove anything private.

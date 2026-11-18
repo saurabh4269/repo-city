@@ -1,6 +1,6 @@
 /**
  * All sound is synthesised with Web Audio: nothing to license or download.
- * Pattern adapted from chausar/src/game/audio.ts (same kit).
+ * Pattern adapted from Chausar (our earlier project): src/game/audio.ts.
  * - city rise rumble, pinch tick, roof lift, floor tap, button click,
  * - a fire crackle loop whose level follows the fire,
  * - test-run ticks and a success chord,

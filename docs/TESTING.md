@@ -3,7 +3,7 @@
 Three layers: Node unit tests for the pure parts, the hands-only journey in Meta's IWER emulator, and the headset checks only a Quest can prove.
 
 ## 1. Unit tests: `npm run test:unit` (Node `node:test`)
-33 tests, all passing (18 Nov 2026):
+51 tests, all passing (18 Nov 2026, re-run for the public release: `ℹ tests 51, pass 51, fail 0`). Besides the files below there are tests for the entry point (town hall), git history and the hotspot score, the affinity layout and `city:repo` on a generated repo (`your-repo.test.mjs`):
 - **Layout** (`tools/test/layout.test.mjs`): no overlapping buildings, everything inside its district and the city square, the smallest building side stays pinchable.
 - **Parser** (`parser.test.mjs`): function spans and complexity for declarations, class methods and arrow functions; the shifted code window for the failing floor.
 - **City contract** (`cities.test.mjs` + `validate-city.mjs`): every field and length limit of `src/city/types.ts`; exactly one failing function; failures and streets reference real buildings; the fixed run has 0 failures; the bug line falls inside the failing floor's excerpt.
@@ -16,35 +16,42 @@ Three layers: Node unit tests for the pure parts, the hands-only journey in Meta
   - a small table (used) and a tiny one (refused);
   - a table across the room (too far).
 
-The data itself is tested by running semver's real suite (`npm run city`): **8,827 assertions; 3 fail with the introduced bug, 0 after the fix** (`fixtures/semver-results/*.json`). On the untouched snapshot, all 50 test files pass.
+The data itself is tested by running semver's real suite (`npm run city`): **8,817 assertions run with the real bug put back (upstream commit 2471d75 undone) and 20 of them fail with `TypeError: Invalid comparator: >2.x+build`; with the upstream fix restored, 8,827 of 8,827 pass** (the bug makes some tests throw before their later assertions run, hence the different totals) (`fixtures/semver-results/*.json`). On the untouched snapshot, all 50 test files pass.
 
 ## 2. Emulator end-to-end: `npm run test:xr`
-`tools/e2e/journey.py`, built on the kit's `xr_e2e_lib.py`. Needs `npx @iwsdk/cli dev up --ai-mode agent --allow-browser-automation`. The app logs `[city] #page.seq event … layout={json}` in dev builds only, and the test waits on those lines.
+`tools/e2e/journey.py`, built on `tools/e2e/xr_e2e_lib.py`. Needs `npx @iwsdk/cli dev up --ai-mode agent --allow-browser-automation`. The app logs `[city] #page.seq event … layout={json}` in dev builds only, and the test waits on those lines.
 
 The journey, hands only (`xr set-input-mode hand`), seated at the emulated living-room table:
 | # | Check |
 |---|---|
 | 1 | Placement finds the labelled table (preview frame on the plane) |
 | 2 | A pinch places the city on the real table, then it rises |
-| 3 | The city sits on the table plane (y within 5 cm) |
-| 4 | The guide names the entry building first, then the first prompt offers the burning building |
-| 5 | Pinching the burning roof opens that building (tap; or `--drag`: pinch and lift 7 cm) |
-| 6 | Touching the smouldering floor with the fingertip selects it (failing = true) |
-| 7 | The fire report offers the fix |
-| 8 | Poking the "Show me the fix" plaque shows the fix and offers the tests |
-| 9 | Poking "Run the tests" starts the fix crane (`crane start`) |
-| 10 | The fire goes out as the crane lifts the broken floor away, then `crane done` and the run starts |
-| 11 | All 8,827 checks pass |
-| 12 | A two-hand pinch scales the city |
-| 13 | "Next city" loads Repo City's own code |
+| 3 | The guide names the town hall (entry file) first, then the fire |
+| 4 | The city sits on the table plane (y within 5 cm) |
+| 5 | The first prompt offers the burning building |
+| 6 | Flow dots run along the opened building's routes |
+| 7 | Pinching the burning roof opens that building (tap; or `--drag`: pinch and lift 7 cm) |
+| 8 | Touching the smouldering floor with the fingertip selects it (failing = true) |
+| 9 | The fire report offers the fix |
+| 10 | Poking "Show me the fix" shows the fix and offers the tests |
+| 11 | Poking "Run the tests" starts the fix crane |
+| 12 | The fire goes out as the crane lifts the broken floor away |
+| 13 | The crane finishes |
+| 14 | The test run starts |
+| 15 | All 8,827 checks pass |
+| 16 | A two-hand pinch scales the city |
+| 17 | The panel and plaques turn to face a viewer in another seat |
+| 18 | Street level turns on |
+| 19 | A one-hand pinch-drag pans the big city |
+| 20 | "Back to the desk" returns |
+| 21 | "Keep exploring" opens free play |
+| 22 | Flow dots stop when the building closes |
+| 23 | "Next city" loads Repo City's own code |
 
-**Results, 18 Nov 2026 (IWSDK 1.1.0, IWER metaQuest3, sunlit_living_room):**
-- right hand, 3 mm fingertip jitter, pinch tap: **13/13**;
-- left hand, 5 mm jitter, pinch-and-lift drag: **13/13**.
-- Presets (`tools/e2e/presets.py`): `fire` and `done` land on their moment: 2/2.
+**Results (IWSDK 1.1.0, IWER metaQuest3, sunlit_living_room):** 23/23 with the right hand (3 mm fingertip jitter, pinch tap) and 23/23 with the left hand (5 mm jitter, pinch-and-lift drag). Presets (`tools/e2e/presets.py`): `fire` and `done` land on their moment: 2/2.
 - The run takes ~2 minutes; the journey inside it takes 22–25 s of app time.
 
-Visual review: `npm run test:xr:tour` saves a screenshot at every first-of-its-kind moment (`artifacts/e2e-tour-*.png`); `tools/e2e/closeup.py` shoots the fire and the open building from 30 cm.
+Visual review: `npm run test:xr:tour` saves a screenshot at every first-of-its-kind moment (`artifacts/e2e-tour-*.png`, not committed); `tools/e2e/closeup.py` shoots the fire and the open building from 30 cm.
 
 **Performance in the emulator:** see "Visual pass: rendering numbers" below.
 

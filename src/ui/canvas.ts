@@ -11,7 +11,7 @@ import {
 /**
  * Canvas2D cards for every piece of text in Repo City (panel, plaques, guide
  * caption, building label). Fit-to-card text and wrapping follow
- * chausar/src/game/text.ts (same kit); the look is Repo City's own.
+ * Chausar (our earlier project): src/game/text.ts; the look is Repo City's own.
  */
 
 export const FONT_UI = `'Inter', 'Helvetica Neue', Arial, sans-serif`;

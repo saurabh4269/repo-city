@@ -1,4 +1,4 @@
-// Copied from hands-of-a-master/src/mr/room-placement.ts (same kit, same authors), incl. the
+// Copied from Ink and Ivory (our earlier project): src/mr/room-placement.ts, incl. the
 // Quest 3 downward-normal fix (Math.abs on the plane's local Y). FOOTPRINT_R tuned for the city plinth.
 /**
  * Room-aware placement: choose where the writing set (or keyboard) lands among

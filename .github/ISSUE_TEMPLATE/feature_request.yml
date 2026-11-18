@@ -1,0 +1,16 @@
+name: Feature request
+description: An idea for the city, the interaction, or city:repo
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would it help with
+      description: The situation you are in and what is hard today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: How it could look or work. Sketches welcome.

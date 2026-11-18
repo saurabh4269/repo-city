@@ -1,4 +1,4 @@
-// Adapted from chausar/src/game/hands.ts (same kit): two pinch tiers + tracking-loss grace.
+// Adapted from Chausar (our earlier project): src/game/hands.ts: two pinch tiers + tracking-loss grace.
 import { Matrix4, Quaternion, Vector3 } from '@iwsdk/core';
 
 /**

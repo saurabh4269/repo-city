@@ -1,4 +1,4 @@
-// Copied from hands-of-a-master/src/common/xr-perf.ts.
+// Copied from Ink and Ivory (our earlier project): src/common/xr-perf.ts.
 import { createSystem, VisibilityState } from '@iwsdk/core';
 
 /**

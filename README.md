@@ -1,93 +1,230 @@
-# Repo City
+<p align="center">
+  <img src="docs/media/hero-street-level.gif" width="640" alt="Repo City on a Meta Quest 3: hands walking through the city at street level, past a building wrapped in scaffolding">
+</p>
 
-**A real code repository rises as a miniature city on your real desk. A failing test is a building on fire.**
+<h1 align="center">Repo City</h1>
 
-Mixed reality for Meta Quest 3/3S in the browser (WebXR, IWSDK 1.1.0). Hands only, seated, 2–4 minutes for the guided journey.
+<p align="center"><b>Your code repository as a miniature city on your real desk. A failing test is a building on fire.</b><br>
+Hands-only mixed reality for Meta Quest 3, in the browser (WebXR + Meta's Immersive Web SDK).</p>
 
-- **Files are buildings.** Footprint grows with lines of code, height with complexity.
-- **Folders are districts**, each with its own tint. **Imports are lit routes** that arc between buildings when you open one.
-- **Functions are floors.** Lift a roof and the building slides out onto your desk as a stack of lit floors.
-- **A failing test is a fire.** Touch the smouldering floor to read the failing check: the assertion, what it expected, what it got.
-- **Fix it and run the tests.** A tower crane lifts out the smouldering floor and lowers in the fixed one, a green wave sweeps the city, and every check passes.
-- **The town hall** is the package's entry file (from `package.json` exports/main, else `index.*`): a domed civic building the guide shows you first.
-- **Scaffolding marks hot spots:** files that changed often in git history *and* are complex, where bugs tend to live. Their facades are worn toward the base.
-- **Data flow:** while a building is open, glowing dots run along its routes to the files it uses (fainter ones come in from the files that use it).
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="https://github.com/saurabh4269/repo-city/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/saurabh4269/repo-city/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="WebXR" src="https://img.shields.io/badge/WebXR-immersive--ar-5b2be0">
+  <img alt="Meta Quest 3" src="https://img.shields.io/badge/Meta%20Quest%203-tested%20on%20device-1c2b33">
+  <img alt="Hands only" src="https://img.shields.io/badge/input-hands%20only-2e7d32">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178c6">
+</p>
 
-The bundled city is **semver 7.7.3** (the version library npm uses; ISC licence) with one **real** bug from its history put back: upstream commit [`2471d75`](https://github.com/npm/node-semver/commit/2471d7543e2e63d9d95358e2405e7e1cde926c36) ("fix: x-range build metadata support", Sep 2025) added one line to `classes/range.js`; we removed it again. Its real test suite fails 20 assertions (`TypeError: Invalid comparator: >2.x+build`, with the real stack), and the crane installs the real upstream fix: 8,827 of 8,827 pass. A second city is **Repo City's own source code**.
+<p align="center"><i>The GIF above is a real Quest 3 capture at street level (no passthrough in this mode).</i></p>
 
-Track: Productivity · Division: New Experience · Competition: Meta VR Start Developer Competition 2026.
+## Try it
 
-## How to play (hands only)
-1. Sit at a table in Meta Quest Browser and press **Enter XR**. Put your controllers down.
-2. **Place the city:** look at your table. A blue frame shows where the city will go. **Pinch** to build it. With no table detected, hold your hand over a surface and pinch, or wait and pinch to use a virtual desk.
-3. The city rises. The **guide** (a small lantern by the panel) says what you're looking at and flies over to the burning building.
-4. **Pinch the burning roof and lift.** The building slides out beside the city as floors. A quick pinch works too.
-5. **Touch the smouldering floor** with your fingertip. The panel shows the failing check.
-6. Poke **Show me the fix** on the table plaque, then **Run the tests**.
-7. Keep exploring: open any building and touch floors to read their code, or press **Next city**.
-- **Two-hand pinch** anywhere above the city to scale and turn it.
-- **Street level:** poke the plaque and the city grows past your table to a hazy horizon. Pinch empty space with one hand and drag to move through it; two-hand pinch to scale; **Back to the desk** returns.
-- **Pass the headset on:** the panel, plaques and opened building turn to face whoever sits at the table now (and after a recenter).
-- Every step also has a plaque on the table, so you can always continue by touch.
+- **Live demo:** coming soon
+- **Demo video:** coming soon
 
-## Run it
-```bash
-npm ci
-npm run setup        # once per machine: IWSDK MCP configs + reference index
-npm run dev          # HTTPS dev server + emulator on https://localhost:8083
-npm run typecheck && npm run build
-```
-On a Quest on the same network, open the `https://<your-ip>:8083` address that `npx @iwsdk/cli dev status` prints, and accept the local certificate. Quest Browser needs https.
+Open the live demo in **Quest Browser** on a Meta Quest 3 or 3S, press **Enter XR**, put the controllers down and use your hands. On a desktop browser the page shows what it is; the XR session needs a headset.
 
-### Your own repository
-You're vibecoding, waiting for your agent: put on the headset and your own repo is the city on your desk.
-```bash
-npm run city:repo -- /path/to/your/repo       # finds src/ (or lib/), runs your tests, writes public/cities/<name>.json
-# then open https://<this machine>:8083/?city=./cities/<name>.json
-```
-It runs your tests here with Node's built-in runner (`node:test`, `.js`/`.mjs`/`.ts` under `test/`, `tests/`, `*.test.*`, `*.spec.*`). Each real failure is mapped through its stack to the building and floor (function) where it breaks, and the panel shows the real assertion or error and stack (paths relative to your repo). With no known fix, the guide sends you back to your editor or agent: rebuild the city after the fix. For other runners (jest, vitest, mocha), run them yourself and pass `--tests results.json`.
+## Why
 
-The lower-level CLI: `node tools/repo-to-city/index.mjs --root ../my-repo --include src --out public/cities/mine.json`.
-`--history git` reads the repo's own git log (2 years, at most 2,000 commits) for scaffolding; `--history h.json` takes a precomputed `{ path: { commits, churn } }`. `--layout affinity` tries to put districts that import each other side by side, and keeps the plain size layout unless that cuts the coupling cost by at least 10% without stretching districts (the scores are in the city JSON's `stats.layout`).
+More and more of my code is now written by a coding agent. I describe the change, the agent works for a few minutes, and I wait. The code still gets written, but I lose my picture of the project: I know the file names, not the shape. Which file is the front door, which parts are tangled together, where things keep breaking.
 
-The CLI also bakes the city's light next to the JSON (KTX2 if KTX-Software's `ktx` is installed, else PNG; `--no-light` skips it). Add `--tests <results.json>` (format in `tools/repo-to-city/run-tests.mjs`) to set fires from your own test run. Your code stays on your machine: nothing is uploaded.
+A file tree doesn't give you that. A place does. So: you're vibecoding and waiting on your agent. Put on the headset, and your own repo is a city standing on the desk you're already working at. Your laptop and coffee stay in view through passthrough. You lift a roof off with a pinch, touch the floor that's burning, and see the exact function and assertion that's failing.
 
-## Test
-```bash
-npm run test:unit    # 51 Node tests: layout (incl. affinity), parser, entry point, your-repo (a generated repo end to end), git history + hotspot score, city contract, light bake, room placement (incl. Quest 3 downward table normals)
-npx @iwsdk/cli dev up --ai-mode agent --allow-browser-automation
-npm run test:xr      # the whole hands-only journey in the emulator (23 checks, incl. a second viewer in another seat and street level)
-npm run test:xr -- --hand left --drag --jitter 5
-npm run test:xr:tour # same, with a screenshot at every first-of-its-kind moment (artifacts/)
-npm run city         # regenerate both cities (re-runs semver's real test suite, bugged and fixed) and bake their light
-node tools/textures/make-textures.mjs   # the KTX2 shadow masks
-python3 tools/e2e/stats.py <label>      # draw calls, triangles, texture memory + review shots
-bash tools/headset-perf.sh <label>      # on a USB-connected Quest: fps + GPU trace
-```
-Results and the headset-only checklist: [docs/TESTING.md](docs/TESTING.md).
+## The mapping
 
-## Code map
-| Path | What |
+| In your repo | In the city |
 |---|---|
-| `src/director.ts` | The one system: phases `page → placing → rising → city → testing → done`, the guided steps, hands → city interaction, guide, plaques |
-| `src/city/city-view.ts` | Plinth, districts, instanced buildings, the opened building's floors and roof, import routes |
-| `src/city/building-material.ts` | Procedural windows, floor slabs, contact darkening and fire on `MeshStandardMaterial` |
-| `src/fx/fire.ts` | Flames, embers, smoke and steam as point sprites (two draw calls) |
-| `src/ui/` | Canvas text cards, the main panel (guide line + city, code, failure, fix, test run, result), table plaques |
-| `src/input/hands.ts` | Pinch with hysteresis, tracking-loss grace, controller fallback |
-| `src/mr/room-placement.ts` | Choosing the real table among detected planes (pure, unit-tested) |
-| `src/city/types.ts` | The city JSON contract |
-| `tools/repo-to-city/` | Repo → city JSON: parser, treemap layout, test runner, summaries |
-| `tools/repo-to-city/light-bake.mjs` | Bakes each city's ambient occlusion and soft shadows into a KTX2 atlas (layout in `src/city/light-layout.ts`) |
-| `src/city/environment.ts`, `src/city/textures.ts` | The city-matched reflection environment; KTX2 loading with the local Basis transcoder |
-| `tools/e2e/journey.py` | Emulator end-to-end test |
-| `fixtures/semver/` | The vendored semver snapshot (ISC) with the one introduced bug |
+| A file | A building. Footprint grows with lines of code, height with complexity |
+| A folder | A district, with its own tint |
+| An import | A street. Routes light up between buildings when you open one, with dots flowing toward the files it uses |
+| A function | A floor. Lift the roof and the building slides out onto your desk as a stack of floors |
+| A failing test | A fire, on the building and floor where the failure's stack trace lands |
+| The entry file (`package.json` exports or main, else `index.*`) | The town hall, a domed civic building the guide shows you first |
+| A hot spot (changed often in git history **and** complex) | Scaffolding, with the facade worn toward the base |
 
-Design decisions (physics, engine, offline guide) are in [docs/JUDGING.md](docs/JUDGING.md).
+## The journey
 
-## Credits
-- **semver** (ISC), npm/node-semver v7.7.3: the bundled city and its tests. One line changed; see `fixtures/semver/REPO-CITY-NOTE.md`.
+The guided journey takes 2 to 4 minutes, seated, hands only. A small lantern guide explains each step out loud and in captions, and every step also has a plaque lying on the table, so you can always continue by touch.
+
+| | |
+|---|---|
+| <img src="docs/media/01-placing.jpg" width="380" alt="A blue frame on a detected table: Table found, pinch to build the city on it"> | <img src="docs/media/02-entry.jpg" width="380" alt="The semver city on the table, with the guide at the town hall and a fire on one roof"> |
+| **1. Place it.** Quest's room data finds your table. Pinch to build the city there. No table detected? Hold a hand over a surface, or use a virtual desk. | **2. The city rises.** The guide starts at the town hall, then flies to the building on fire. The panel shows 46 files, 2,055 lines, 81 functions and 20 failing checks. |
+| <img src="docs/media/03-open.jpg" width="380" alt="The burning building opened beside the city as a stack of floors, with code on the panel"> | <img src="docs/media/04-fire-report.jpg" width="380" alt="The fire report: TypeError Invalid comparator >2.x+build, with the real stack"> |
+| **3. Lift the roof.** Pinch the burning roof and lift. The building slides out beside the city as one floor per function. | **4. Touch the fire.** Touch the smouldering floor with a fingertip. The panel shows the real assertion, the error and the stack. |
+| <img src="docs/media/05-crane.jpg" width="380" alt="The test run: 3,149 passed, 0 failed, with the fixed building glowing green"> | <img src="docs/media/06-done.jpg" width="380" alt="All tests pass: 8,827 of 8,827 checks green"> |
+| **5. Fix it and run the tests.** A tower crane lifts the broken floor out and lowers the fixed one in, then the test run sweeps the city green. | **6. All tests pass.** 8,827 of 8,827. Keep exploring, open the next city, or go to **street level**. |
+
+Screenshots 1 to 6 are from Meta's IWER emulator (the same build, driven by the end-to-end test). The GIF at the top is the real headset.
+
+**The bug is real.** The bundled city is [semver](https://github.com/npm/node-semver) 7.7.3, the version library npm uses (ISC licence). Upstream commit [`2471d75`](https://github.com/npm/node-semver/commit/2471d7543e2e63d9d95358e2405e7e1cde926c36) ("fix: x-range build metadata support", September 2025) added one line to `parseComparator` in `classes/range.js`. We removed that line from our snapshot. Semver's own test suite then fails 20 assertions with `TypeError: Invalid comparator: >2.x+build`, the fire panel shows that error with its real stack, the fix panel shows the upstream commit, and after the crane 8,827 of 8,827 assertions pass. See [`fixtures/semver/REPO-CITY-NOTE.md`](fixtures/semver/REPO-CITY-NOTE.md).
+
+A second city is Repo City's own source code.
+
+**Also in the headset:**
+- **Two-hand pinch** above the city scales and turns it.
+- **Street level:** poke the plaque and the city grows about 8 times past your table to a hazy horizon. Pinch and drag with one hand to move through it, two-hand pinch to scale, **Back to the desk** to return.
+- **Pass the headset on:** the panel, plaques and opened building turn to face whoever is wearing the headset now, and re-snap after a Quest recenter.
+
+## Use it on your own repo
+
+```bash
+npm run city:repo -- /path/to/your/repo
+# then open https://<this machine>:8083/?city=./cities/<repo-name>.json in Quest Browser
+```
+
+What it does, on your machine, with nothing uploaded:
+
+1. Finds the source folder (`src/`, else `lib/`, else the repo root). `--include src,lib` overrides it.
+2. Parses every JS and TS file with the TypeScript compiler API: functions with their line spans and a complexity measure, and the import graph.
+3. Runs your tests with Node's built-in test runner (`node:test`): `.js`, `.mjs` and `.ts` files under `test/`, `tests/`, `__tests__/`, or named `*.test.*` / `*.spec.*`. TypeScript tests need Node 22.18 or newer.
+4. Maps each real failure through its stack trace to the building and floor (function) where it breaks, with paths relative to your repo. Test-file naming conventions are the fallback when a stack has no frame in your source.
+5. Reads your git history (2 years, at most 2,000 commits, renames followed) for the hot spots, lays the city out, bakes its light, and writes `public/cities/<repo-name>.json` plus a `.light.ktx2` (or `.png` if KTX-Software's `ktx` is not installed).
+
+**Supported today:** JavaScript and TypeScript, `node:test`. **Other runners** (jest, vitest, mocha, tap): run them yourself and pass `--tests results.json` (format in [`tools/repo-to-city/run-tests.mjs`](tools/repo-to-city/run-tests.mjs)). For your own repo there is no crane yet: the guide sends you to your editor or your agent, and you rebuild the city after the fix.
+
+Options: `--name "My app"`, `--id my-app`, `--include src`, `--tests results.json`. The lower-level CLI is `node tools/repo-to-city/index.mjs --root ../my-repo --include src --out public/cities/mine.json` with `--history git|h.json`, `--layout size|affinity` and `--no-light`.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph offline["Offline pipeline (Node, tools/repo-to-city)"]
+    direction TB
+    R[Your repo] --> P["Parse with the TypeScript compiler API<br/>functions, spans, complexity, imports"]
+    R --> G["git log --numstat<br/>commits and churn per file"]
+    P --> L["Treemap layout<br/>districts, pinchable buildings"]
+    G --> L
+    R --> T["Run the real tests<br/>node:test, or a results file"]
+    T --> M["Map each failure through its stack<br/>to a building and a floor"]
+    L --> B["Light bake<br/>AO and soft shadows to KTX2"]
+    M --> J[(City JSON + .light.ktx2)]
+    B --> J
+    L --> J
+  end
+  subgraph runtime["Runtime (Quest Browser, WebXR + IWSDK + three.js)"]
+    direction TB
+    X["WebXR immersive-ar<br/>passthrough"] --> A["Plane detection + anchors<br/>pick the real table"]
+    A --> C["Instanced buildings<br/>1 draw call, procedural windows"]
+    C --> F["Fire particles, crane in the vertex shader,<br/>flow dots on the GPU"]
+    F --> H["Hand input<br/>pinch, fingertip poke, two-hand scale"]
+    H --> U["Panel, plaques and lantern guide"]
+    U --> S["Street level"]
+  end
+  J -->|"fetched at load, no other network calls"| C
+```
+
+Everything runs on the headset. There is no LLM and no network call at runtime: the guide's lines are prepared from the repo at build time and spoken with the browser's speech synthesis. Sounds are synthesised with Web Audio.
+
+Module map and design decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/JUDGING.md](docs/JUDGING.md).
+
+## Results on a real Quest 3
+
+About 10 minutes of play on a Quest 3 in Quest Browser 156, 303 samples logged over Wi-Fi by a small dev relay we wrote ([`tools/quest-debug.mjs`](tools/quest-debug.mjs): in dev builds only, the page forwards fps, frame-time p95, long frames and draw calls every 2 s to the dev server):
+
+- **A steady 72 fps**, with **20 to 40 draw calls** per frame. Street level also holds 72 fps.
+- Hands were detected immediately, and two-hand scaling worked on both cities.
+- First-load hitches (shaders compiling and textures uploading on first draw) reached 0.8 s. Prewarming everything while you are still choosing where to place the city cut the worst frame to 0.12 to 0.18 s, measured on the headset. Smaller, not gone yet.
+- The test run first dipped to 66 to 69 fps (a large panel being redrawn several times a second). Its moving parts now sit on a small separate card. That change is not yet re-measured on the headset.
+
+Per-step numbers, the emulator rendering budget and the headset checklist: [docs/TESTING.md](docs/TESTING.md).
+
+## Testing
+
+| Layer | Command | Result |
+|---|---|---|
+| Unit tests (layout, affinity layout, parser, entry point, git history and hotspot score, city contract, light bake, room placement incl. Quest 3 downward table normals, `city:repo` end to end on a generated repo) | `npm run test:unit` | **51 / 51 pass** |
+| Semver's real suite, bug put back / upstream fix restored | `npm run city` | **20 failing** / **8,827 of 8,827 pass** |
+| Hands-only journey in Meta's IWER emulator: place, open the fire, read the bug, crane, tests, two-hand scale, a viewer in another seat, street level, next city | `npm run test:xr` | **23 / 23 checks**, with the right hand and with the left hand (pinch-and-lift drag, 5 mm jitter) |
+| Typecheck and production build | `npm run typecheck && npm run build` | pass, also in [CI](.github/workflows/ci.yml) |
+
+The emulator test needs a managed browser and the IWSDK dev server, so CI runs the unit tests, typecheck and build only:
+
+```bash
+npx @iwsdk/cli dev up --ai-mode agent --allow-browser-automation
+npm run test:xr                                   # right hand
+npm run test:xr -- --hand left --drag --jitter 5  # left hand, pinch and lift
+npm run test:xr:tour                              # same, with a screenshot at each first-of-its-kind moment
+```
+
+## Getting started
+
+Requirements: Node 22.18+ or 24 LTS (see `.nvmrc`), git. Optional: [KTX-Software](https://github.com/KhronosGroup/KTX-Software) for KTX2 light bakes (PNG otherwise), Python 3 for the emulator test.
+
+```bash
+git clone https://github.com/saurabh4269/repo-city.git
+cd repo-city
+npm ci
+npm run dev          # IWSDK dev server (HTTPS) + emulator at https://localhost:8083
+```
+
+**On a Quest 3 / 3S:** put the headset on the same Wi-Fi as your computer, open `https://<your-computer's-LAN-IP>:8083` in Quest Browser (`npx @iwsdk/cli dev status` prints it), accept the local certificate warning (Quest Browser needs HTTPS for WebXR), press **Enter XR** and put the controllers down.
+
+**Controls (hands only):**
+
+| Gesture | Does |
+|---|---|
+| Pinch while looking at your table | Place the city |
+| Pinch a roof and lift (or a quick pinch) | Open the building as floors |
+| Touch a floor with your fingertip | Read its code, or the failing check |
+| Poke a plaque on the table | The next step (Show me the fix, Run the tests, Street level, Next city) |
+| Two-hand pinch | Scale and turn the city |
+| One-hand pinch and drag (street level) | Move through the city |
+
+**Build your own city:** `npm run city:repo -- /path/to/repo` (above). `npm run city` regenerates the two bundled cities, re-running semver's real suite with the bug and with the fix.
+
+```bash
+npm run typecheck
+npm run test:unit
+npm run build        # static site in dist/, deployable to any HTTPS static host
+```
+
+## Project structure
+
+```
+src/
+  director.ts            the one system: phases page > placing > rising > city > testing > done, guide, plaques, hands to city
+  city/                  plinth, districts, instanced buildings, opened building, routes, materials, light layout, city JSON types
+  fx/                    fire and smoke particles, the fix crane, flow dots, sparks
+  input/hands.ts         pinch with hysteresis, tracking-loss grace, controller fallback
+  mr/                    table detection from Quest plane data (pure, unit-tested)
+  ui/                    canvas text cards, the main panel, table plaques
+tools/
+  repo-to-city/          repo > city JSON: parser, layout, history, test runner, light bake, city:repo
+  test/                  Node unit tests (node:test)
+  e2e/                   hands-only emulator journey (Python, IWSDK CLI)
+  quest-debug.mjs        dev-only Wi-Fi relay for headset logs and frame timing
+  textures/              generated KTX2 shadow masks
+public/cities/           the bundled city JSONs and their baked light (KTX2)
+fixtures/                semver 7.7.3 snapshot (ISC) with the real bug put back, test results, git history
+docs/                    architecture, design decisions, testing, city-life spec, media
+```
+
+## Roadmap
+
+Working now: the semver city and Repo City's own city, the full guided journey, street level, and `city:repo` for your own JS or TS repo with `node:test` (other runners via a results file).
+
+Planned:
+- **Agent fix suggestions as worker characters:** your coding agent's proposed fix arrives as workers on the burning building. Cut from the competition build for time.
+- **Open a repo from inside the headset** instead of a command and a link.
+- **Test with developers on their own repos**, to learn whether a city on the desk helps them understand a codebase their agent is changing, and which parts (fires, hot spots, streets) they actually use.
+- Remove the last first-use hitch and re-measure the test run on the headset.
+
+## Prior art and credits
+
+- **Code cities** are an old idea: [CodeCity](https://wettel.github.io/codecity.html) (Richard Wettel) and [CodeCharta](https://github.com/MaibornWolff/codecharta).
+- The city-life features (town hall, fix crane, weathering from git history, flow dots, districts placed by coupling) were inspired by **[Claude Clan](https://github.com/mittal-parth/claude-clan)** by Parth Mittal, a desktop isometric code city. It has no licence, so we took ideas only: no code, art or text.
+- **[semver](https://github.com/npm/node-semver)** 7.7.3 (ISC, Copyright Isaac Z. Schlueter and Contributors): the bundled city and its test suite, in `fixtures/semver/` with its licence. One line removed, see [REPO-CITY-NOTE.md](fixtures/semver/REPO-CITY-NOTE.md).
+- **[Immersive Web SDK](https://github.com/facebook/immersive-web-sdk)** and **three.js** (MIT), **@pmndrs/uikit** (MIT).
+- **Basis Universal** transcoder (Apache-2.0), served from IWSDK's vendored copy; textures encoded at build time with **KTX-Software** (Apache-2.0).
 - **Fonts:** Inter and JetBrains Mono (SIL Open Font License), loaded from Google Fonts with system fallbacks.
-- **Basis Universal transcoder** (Apache-2.0), served from IWSDK's vendored copy; textures encoded at build time with **KTX-Software** (Apache-2.0).
-- **Code reused from this kit:** room placement (Hands of a Master), hand input and the audio-synthesis pattern (Chausar). IWSDK and three.js (MIT).
-- All geometry, textures, particles and sounds are generated in code. Full list: [public/cities/CREDITS.md](public/cities/CREDITS.md).
+- All geometry, textures, particles and sounds are generated in code. Asset notes: [public/cities/CREDITS.md](public/cities/CREDITS.md), [public/textures/CREDITS.md](public/textures/CREDITS.md).
+
+## Built for
+
+The **Meta VR Start Developer Competition 2026**, Productivity track, New Experience division.
+
+## License
+
+[MIT](LICENSE) for Repo City. The semver snapshot in `fixtures/semver/` keeps its own [ISC licence](fixtures/semver/LICENSE).

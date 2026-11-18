@@ -1,6 +1,32 @@
 {
   "name": "repo-city",
   "version": "0.1.0",
+  "description": "Your code repository as a miniature city on your real desk, in hands-only mixed reality on Meta Quest 3 (WebXR, IWSDK). A failing test is a building on fire.",
+  "license": "MIT",
+  "author": "Saurabh Gupta",
+  "homepage": "https://github.com/saurabh4269/repo-city#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saurabh4269/repo-city.git"
+  },
+  "bugs": {
+    "url": "https://github.com/saurabh4269/repo-city/issues"
+  },
+  "keywords": [
+    "webxr",
+    "meta-quest",
+    "quest-3",
+    "mixed-reality",
+    "hand-tracking",
+    "passthrough",
+    "iwsdk",
+    "threejs",
+    "code-visualization",
+    "software-visualization",
+    "code-city",
+    "developer-tools",
+    "typescript"
+  ],
   "private": true,
   "type": "module",
   "scripts": {
