@@ -32,7 +32,7 @@ export interface BuildingUniforms {
 const LIGHT_GLSL = `
 vec2 rcLightAt(vec2 px) { return texture2D(uLight, px / ${ATLAS.toFixed(1)}).rg; }
 void rcApplyLight(vec2 L, inout ReflectedLight rl) {
-  float ao = mix(1.0, 0.12 + 0.88 * L.r, uAO * uRise);
+  float ao = mix(1.0, 0.12 + 0.88 * pow(L.r, 1.5), uAO * uRise);
   float sv = mix(1.0, L.g, uRise);
   // the environment's bright window sits where the sun is: in the baked shade it is hidden too
   rl.indirectDiffuse *= ao * mix(1.0, sv, 0.35);

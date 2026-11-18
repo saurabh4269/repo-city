@@ -43,6 +43,7 @@ const DISTRICT_TINTS = DISTRICT_TINTS_HEX.map((c) => new Color(c));
 /** Roof roughness per district tint: glazed tiles, painted metal, gravel… (lower = more sheen). */
 const DISTRICT_ROOF_ROUGH = [0.5, 0.64, 0.4, 0.72, 0.52, 0.46];
 const BUILDING_BASE = new Color('#f4efe7');
+const PLATE_CARD = new Color('#d9d3c8');
 
 const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
 const easeBack = (t: number) => {
@@ -287,7 +288,8 @@ export class CityView {
     data.districts.slice(0, 8).forEach((d, i) => {
       this.m.compose(this.p.set(d.x, 0, d.z), this.q.identity(), this.s.set(d.w, 0.01, d.d));
       this.districtMesh.setMatrixAt(i, this.m);
-      this.districtMesh.setColorAt(i, DISTRICT_TINTS[d.color % DISTRICT_TINTS.length]);
+      // plates read as tinted card: the tint, muted toward the plinth top
+      this.districtMesh.setColorAt(i, this.c.copy(DISTRICT_TINTS[d.color % DISTRICT_TINTS.length]).lerp(PLATE_CARD, 0.35));
     });
     this.districtMesh.instanceMatrix.needsUpdate = true;
     if (this.districtMesh.instanceColor) this.districtMesh.instanceColor.needsUpdate = true;
