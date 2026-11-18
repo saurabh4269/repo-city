@@ -20,7 +20,7 @@ Hands-only mixed reality for Meta Quest 3, in the browser (WebXR + Meta's Immers
 
 ## Try it
 
-- **Live demo:** coming soon
+- **Live demo:** https://repo-city-phi.vercel.app (open it in Meta Quest Browser)
 - **Demo video:** coming soon
 
 Open the live demo in **Quest Browser** on a Meta Quest 3 or 3S, press **Enter XR**, put the controllers down and use your hands. On a desktop browser the page shows what it is; the XR session needs a headset.
