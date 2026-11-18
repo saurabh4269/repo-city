@@ -136,7 +136,7 @@ Per-step numbers, the emulator rendering budget and the headset checklist: [docs
 |---|---|---|
 | Unit tests (layout, affinity layout, parser, entry point, git history and hotspot score, city contract, light bake, room placement incl. Quest 3 downward table normals, `city:repo` end to end on a generated repo) | `npm run test:unit` | **51 / 51 pass** |
 | Semver's real suite, bug put back / upstream fix restored | `npm run city` | **20 failing** / **8,827 of 8,827 pass** |
-| Hands-only journey in Meta's IWER emulator: place, open the fire, read the bug, crane, tests, two-hand scale, a viewer in another seat, street level, next city | `npm run test:xr` | **23 / 23 checks**, with the right hand and with the left hand (pinch-and-lift drag, 5 mm jitter) |
+| Hands-only journey in Meta's IWER emulator: place, open the fire, read the bug, crane, tests, two-hand scale, a viewer in another seat, street level, next city | `npm run test:xr` | **23 / 23 checks** with the right hand and **23 / 23** with the left hand (pinch-and-lift drag, 5 mm jitter), re-run on this repo on 19 Nov 2026 |
 | Typecheck and production build | `npm run typecheck && npm run build` | pass, also in [CI](.github/workflows/ci.yml) |
 
 The emulator test needs a managed browser and the IWSDK dev server, so CI runs the unit tests, typecheck and build only:
@@ -158,6 +158,8 @@ cd repo-city
 npm ci
 npm run dev          # IWSDK dev server (HTTPS) + emulator at https://localhost:8083
 ```
+
+`PORT=9000 npm run dev` picks another port.
 
 **On a Quest 3 / 3S:** put the headset on the same Wi-Fi as your computer, open `https://<your-computer's-LAN-IP>:8083` in Quest Browser (`npx @iwsdk/cli dev status` prints it), accept the local certificate warning (Quest Browser needs HTTPS for WebXR), press **Enter XR** and put the controllers down.
 
